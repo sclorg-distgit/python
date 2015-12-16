@@ -1,0 +1,31 @@
+unchanged:
+--- a/Misc/NEWS
++++ b/Misc/NEWS
+@@ -49,8 +49,10 @@ Core and Builtins
+ Library
+ -------
+ 
++- Issue #17968: Fix memory leak in os.listxattr().
++
+ - Issue #17606: Fixed support of encoded byte strings in the XMLGenerator
+- .characters() and ignorableWhitespace() methods.  Original patch by Sebastian
++  characters() and ignorableWhitespace() methods.  Original patch by Sebastian
+   Ortiz Vasquez.
+ 
+ - Issue #17732: Ignore distutils.cfg options pertaining to install paths if a
+diff -u b/Modules/posixmodule.c b/Modules/posixmodule.c
+--- b/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -10625,8 +10625,11 @@
+         Py_END_ALLOW_THREADS;
+ 
+         if (length < 0) {
+-            if (errno == ERANGE)
++            if (errno == ERANGE) {
++                PyMem_FREE(buffer);
++                buffer = NULL;
+                 continue;
++            }
+             path_error("listxattr", &path);
+             break;
+         }
