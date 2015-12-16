@@ -1,0 +1,430 @@
+
+# HG changeset patch
+# User Senthil Kumaran <senthil@uthcode.com>
+# Date 1411111410 -28800
+# Node ID 13f46fc1a00206c77bb34bb9336c230634a67ef3
+# Parent  1590c594550ef34c9e2116aa317ef6c57f3ba56e
+backport context argument of urlopen (#22366) for pep 476
+
+diff --git a/Doc/library/urllib.request.rst b/Doc/library/urllib.request.rst
+--- a/Doc/library/urllib.request.rst
++++ b/Doc/library/urllib.request.rst
+@@ -16,7 +16,7 @@ authentication, redirections, cookies an
+ The :mod:`urllib.request` module defines the following functions:
+ 
+ 
+-.. function:: urlopen(url, data=None[, timeout], *, cafile=None, capath=None, cadefault=False)
++.. function:: urlopen(url, data=None[, timeout], *, cafile=None, capath=None, cadefault=False, context=None)
+ 
+    Open the URL *url*, which can be either a string or a
+    :class:`Request` object.
+@@ -47,6 +47,10 @@ The :mod:`urllib.request` module defines
+    the global default timeout setting will be used).  This actually
+    only works for HTTP, HTTPS and FTP connections.
+ 
++   If *context* is specified, it must be a :class:`ssl.SSLContext` instance
++   describing the various SSL options. See
++   :class:`~http.client.HTTPSConnection` for more details.
++
+    The optional *cafile* and *capath* parameters specify a set of trusted
+    CA certificates for HTTPS requests.  *cafile* should point to a single
+    file containing a bundle of CA certificates, whereas *capath* should
+@@ -111,6 +115,9 @@ The :mod:`urllib.request` module defines
+    .. versionchanged:: 3.3
+       *cadefault* was added.
+ 
++   .. versionchanged:: 3.4.3
++      *context* was added.
++
+ .. function:: install_opener(opener)
+ 
+    Install an :class:`OpenerDirector` instance as the default global opener.
+diff --git a/Lib/test/test_urllib.py b/Lib/test/test_urllib.py
+--- a/Lib/test/test_urllib.py
++++ b/Lib/test/test_urllib.py
+@@ -10,6 +10,7 @@ import unittest
+ from unittest.mock import patch
+ from test import support
+ import os
++import ssl
+ import sys
+ import tempfile
+ from nturl2path import url2pathname, pathname2url
+@@ -379,6 +380,13 @@ Content-Type: text/html; charset=iso-885
+         with support.check_warnings(('',DeprecationWarning)):
+             urllib.request.URLopener()
+ 
++    def test_cafile_and_context(self):
++        context = ssl.create_default_context()
++        with self.assertRaises(ValueError):
++            urllib.request.urlopen(
++                "https://localhost", cafile="/nonexistent/path", context=context
++            )
++
+ class urlopen_DataTests(unittest.TestCase):
+     """Test urlopen() opening a data URL."""
+ 
+diff --git a/Lib/urllib/request.py b/Lib/urllib/request.py
+--- a/Lib/urllib/request.py
++++ b/Lib/urllib/request.py
+@@ -136,9 +136,14 @@ else:
+ 
+ _opener = None
+ def urlopen(url, data=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+-            *, cafile=None, capath=None, cadefault=False):
++            *, cafile=None, capath=None, cadefault=False, context=None):
+     global _opener
+     if cafile or capath or cadefault:
++        if context is not None:
++            raise ValueError(
++                "You can't pass both context and any of cafile, capath, and "
++                "cadefault"
++            )
+         if not _have_ssl:
+             raise ValueError('SSL support not available')
+         context = ssl._create_stdlib_context(cert_reqs=ssl.CERT_REQUIRED,
+@@ -146,6 +151,9 @@ def urlopen(url, data=None, timeout=sock
+                                              capath=capath)
+         https_handler = HTTPSHandler(context=context, check_hostname=True)
+         opener = build_opener(https_handler)
++    elif context:
++        https_handler = HTTPSHandler(context=context)
++        opener = build_opener(https_handler)
+     elif _opener is None:
+         _opener = opener = build_opener()
+     else:
+diff --git a/Doc/library/http.client.rst b/Doc/library/http.client.rst
+--- a/Doc/library/http.client.rst
++++ b/Doc/library/http.client.rst
+@@ -71,12 +71,6 @@ The module provides the following classe
+    :func:`ssl.create_default_context` select the system's trusted CA
+    certificates for you.
+ 
+-   The recommended way to connect to HTTPS hosts on the Internet is as
+-   follows::
+-
+-      context = ssl.create_default_context()
+-      h = client.HTTPSConnection('www.python.org', 443, context=context)
+-
+    Please read :ref:`ssl-security` for more information on best practices.
+ 
+    .. note::
+@@ -97,6 +91,12 @@ The module provides the following classe
+       The *strict* parameter was removed. HTTP 0.9-style "Simple Responses" are
+       no longer supported.
+ 
++   .. versionchanged:: 3.4.3
++      This class now performs all the necessary certificate and hostname checks
++      by default. To revert to the previous, unverified, behavior
++      :func:`ssl._create_unverified_context` can be passed to the *context*
++      parameter.
++
+ 
+ .. class:: HTTPResponse(sock, debuglevel=0, method=None, url=None)
+ 
+diff --git a/Doc/library/urllib.request.rst b/Doc/library/urllib.request.rst
+--- a/Doc/library/urllib.request.rst
++++ b/Doc/library/urllib.request.rst
+@@ -62,11 +62,6 @@ The :mod:`urllib.request` module defines
+    *cafile* and *capath* parameters are omitted.  This will only work on
+    some non-Windows platforms.
+ 
+-   .. warning::
+-      If neither *cafile* nor *capath* is specified, and *cadefault* is ``False``,
+-      an HTTPS request will not do any verification of the server's
+-      certificate.
+-
+    For http and https urls, this function returns a
+    :class:`http.client.HTTPResponse` object which has the following
+    :ref:`httpresponse-objects` methods.
+diff --git a/Doc/whatsnew/3.4.rst b/Doc/whatsnew/3.4.rst
+--- a/Doc/whatsnew/3.4.rst
++++ b/Doc/whatsnew/3.4.rst
+@@ -2504,3 +2504,32 @@ Changes in the C API
+ * The ``f_tstate`` (thread state) field of the :c:type:`PyFrameObject`
+   structure has been removed to fix a bug: see :issue:`14432` for the
+   rationale.
++
++Changed in 3.4.3
++================
++
++.. _pep-476:
++
++PEP 476: Enabling certificate verification by default for stdlib http clients
++-----------------------------------------------------------------------------
++
++:mod:`http.client` and modules which use it, such as :mod:`urllib.request` and
++:mod:`xmlrpc.client`, will now verify that the server presents a certificate
++which is signed by a CA in the platform trust store and whose hostname matches
++the hostname being requested by default, significantly improving security for
++many applications.
++
++For applications which require the old previous behavior, they can pass an
++alternate context::
++
++    import urllib.request
++    import ssl
++
++    # This disables all verification
++    context = ssl._create_unverified_context()
++
++    # This allows using a specific certificate for the host, which doesn't need
++    # to be in the trust store
++    context = ssl.create_default_context(cafile="/path/to/file.crt")
++
++    urllib.request.urlopen("https://invalid-cert", context=context)
+diff --git a/Lib/http/client.py b/Lib/http/client.py
+--- a/Lib/http/client.py
++++ b/Lib/http/client.py
+@@ -1203,7 +1203,7 @@ else:
+             self.key_file = key_file
+             self.cert_file = cert_file
+             if context is None:
+-                context = ssl._create_stdlib_context()
++                context = ssl._create_default_https_context()
+             will_verify = context.verify_mode != ssl.CERT_NONE
+             if check_hostname is None:
+                 check_hostname = will_verify
+diff --git a/Lib/ssl.py b/Lib/ssl.py
+--- a/Lib/ssl.py
++++ b/Lib/ssl.py
+@@ -441,8 +441,7 @@ def create_default_context(purpose=Purpo
+         context.load_default_certs(purpose)
+     return context
+ 
+-
+-def _create_stdlib_context(protocol=PROTOCOL_SSLv23, *, cert_reqs=None,
++def _create_unverified_context(protocol=PROTOCOL_SSLv23, *, cert_reqs=None,
+                            check_hostname=False, purpose=Purpose.SERVER_AUTH,
+                            certfile=None, keyfile=None,
+                            cafile=None, capath=None, cadata=None):
+@@ -480,6 +479,14 @@ def _create_stdlib_context(protocol=PROT
+ 
+     return context
+ 
++# Used by http.client if no context is explicitly passed.
++_create_default_https_context = create_default_context
++
++
++# Backwards compatibility alias, even though it's not a public name.
++_create_stdlib_context = _create_unverified_context
++
++
+ class SSLSocket(socket):
+     """This class implements a subtype of socket.socket that wraps
+     the underlying OS socket in an SSL context when necessary, and
+diff --git a/Lib/test/test_httplib.py b/Lib/test/test_httplib.py
+--- a/Lib/test/test_httplib.py
++++ b/Lib/test/test_httplib.py
+@@ -778,13 +778,36 @@ class HTTPSTest(TestCase):
+         self.assertIn('Apache', server_string)
+ 
+     def test_networked(self):
+-        # Default settings: no cert verification is done
++        # Default settings: requires a valid cert from a trusted CA
++        import ssl
+         support.requires('network')
+-        with support.transient_internet('svn.python.org'):
+-            h = client.HTTPSConnection('svn.python.org', 443)
++        with support.transient_internet('self-signed.pythontest.net'):
++            h = client.HTTPSConnection('self-signed.pythontest.net', 443)
++            with self.assertRaises(ssl.SSLError) as exc_info:
++                h.request('GET', '/')
++            self.assertEqual(exc_info.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
++
++    def test_networked_noverification(self):
++        # Switch off cert verification
++        import ssl
++        support.requires('network')
++        with support.transient_internet('self-signed.pythontest.net'):
++            context = ssl._create_unverified_context()
++            h = client.HTTPSConnection('self-signed.pythontest.net', 443,
++                                       context=context)
+             h.request('GET', '/')
+             resp = h.getresponse()
+-            self._check_svn_python_org(resp)
++            self.assertIn('nginx', resp.getheader('server'))
++
++    def test_networked_trusted_by_default_cert(self):
++        # Default settings: requires a valid cert from a trusted CA
++        support.requires('network')
++        with support.transient_internet('www.python.org'):
++            h = client.HTTPSConnection('www.python.org', 443)
++            h.request('GET', '/')
++            resp = h.getresponse()
++            content_type = resp.getheader('content-type')
++            self.assertIn('text/html', content_type)
+ 
+     def test_networked_good_cert(self):
+         # We feed a CA cert that validates the server's cert
+@@ -803,13 +826,23 @@ class HTTPSTest(TestCase):
+         # We feed a "CA" cert that is unrelated to the server's cert
+         import ssl
+         support.requires('network')
+-        with support.transient_internet('svn.python.org'):
++        with support.transient_internet('self-signed.pythontest.net'):
+             context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+             context.verify_mode = ssl.CERT_REQUIRED
+             context.load_verify_locations(CERT_localhost)
+-            h = client.HTTPSConnection('svn.python.org', 443, context=context)
+-            with self.assertRaises(ssl.SSLError):
++            h = client.HTTPSConnection('self-signed.pythontest.net', 443, context=context)
++            with self.assertRaises(ssl.SSLError) as exc_info:
+                 h.request('GET', '/')
++            self.assertEqual(exc_info.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
++
++    def test_local_unknown_cert(self):
++        # The custom cert isn't known to the default trust bundle
++        import ssl
++        server = self.make_server(CERT_localhost)
++        h = client.HTTPSConnection('localhost', server.port)
++        with self.assertRaises(ssl.SSLError) as exc_info:
++            h.request('GET', '/')
++        self.assertEqual(exc_info.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
+ 
+     def test_local_good_hostname(self):
+         # The (valid) cert validates the HTTP hostname
+@@ -822,7 +855,6 @@ class HTTPSTest(TestCase):
+         h.request('GET', '/nonexistent')
+         resp = h.getresponse()
+         self.assertEqual(resp.status, 404)
+-        del server
+ 
+     def test_local_bad_hostname(self):
+         # The (valid) cert doesn't validate the HTTP hostname
+@@ -845,7 +877,6 @@ class HTTPSTest(TestCase):
+         h.request('GET', '/nonexistent')
+         resp = h.getresponse()
+         self.assertEqual(resp.status, 404)
+-        del server
+ 
+     @unittest.skipIf(not hasattr(client, 'HTTPSConnection'),
+                      'http.client.HTTPSConnection not available')
+diff --git a/Lib/test/test_logging.py b/Lib/test/test_logging.py
+--- a/Lib/test/test_logging.py
++++ b/Lib/test/test_logging.py
+@@ -1631,36 +1631,6 @@ class UnixSysLogHandlerTest(SysLogHandle
+ class HTTPHandlerTest(BaseTest):
+     """Test for HTTPHandler."""
+ 
+-    PEMFILE = """-----BEGIN RSA PRIVATE KEY-----
+-MIICXQIBAAKBgQDGT4xS5r91rbLJQK2nUDenBhBG6qFk+bVOjuAGC/LSHlAoBnvG
+-zQG3agOG+e7c5z2XT8m2ktORLqG3E4mYmbxgyhDrzP6ei2Anc+pszmnxPoK3Puh5
+-aXV+XKt0bU0C1m2+ACmGGJ0t3P408art82nOxBw8ZHgIg9Dtp6xIUCyOqwIDAQAB
+-AoGBAJFTnFboaKh5eUrIzjmNrKsG44jEyy+vWvHN/FgSC4l103HxhmWiuL5Lv3f7
+-0tMp1tX7D6xvHwIG9VWvyKb/Cq9rJsDibmDVIOslnOWeQhG+XwJyitR0pq/KlJIB
+-5LjORcBw795oKWOAi6RcOb1ON59tysEFYhAGQO9k6VL621gRAkEA/Gb+YXULLpbs
+-piXN3q4zcHzeaVANo69tUZ6TjaQqMeTxE4tOYM0G0ZoSeHEdaP59AOZGKXXNGSQy
+-2z/MddcYGQJBAMkjLSYIpOLJY11ja8OwwswFG2hEzHe0cS9bzo++R/jc1bHA5R0Y
+-i6vA5iPi+wopPFvpytdBol7UuEBe5xZrxWMCQQCWxELRHiP2yWpEeLJ3gGDzoXMN
+-PydWjhRju7Bx3AzkTtf+D6lawz1+eGTuEss5i0JKBkMEwvwnN2s1ce+EuF4JAkBb
+-E96h1lAzkVW5OAfYOPY8RCPA90ZO/hoyg7PpSxR0ECuDrgERR8gXIeYUYfejBkEa
+-rab4CfRoVJKKM28Yq/xZAkBvuq670JRCwOgfUTdww7WpdOQBYPkzQccsKNCslQW8
+-/DyW6y06oQusSENUvynT6dr3LJxt/NgZPhZX2+k1eYDV
+------END RSA PRIVATE KEY-----
+------BEGIN CERTIFICATE-----
+-MIICGzCCAYSgAwIBAgIJAIq84a2Q/OvlMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV
+-BAMTCWxvY2FsaG9zdDAeFw0xMTA1MjExMDIzMzNaFw03NTAzMjEwMzU1MTdaMBQx
+-EjAQBgNVBAMTCWxvY2FsaG9zdDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA
+-xk+MUua/da2yyUCtp1A3pwYQRuqhZPm1To7gBgvy0h5QKAZ7xs0Bt2oDhvnu3Oc9
+-l0/JtpLTkS6htxOJmJm8YMoQ68z+notgJ3PqbM5p8T6Ctz7oeWl1flyrdG1NAtZt
+-vgAphhidLdz+NPGq7fNpzsQcPGR4CIPQ7aesSFAsjqsCAwEAAaN1MHMwHQYDVR0O
+-BBYEFLWaUPO6N7efGiuoS9i3DVYcUwn0MEQGA1UdIwQ9MDuAFLWaUPO6N7efGiuo
+-S9i3DVYcUwn0oRikFjAUMRIwEAYDVQQDEwlsb2NhbGhvc3SCCQCKvOGtkPzr5TAM
+-BgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4GBAMK5whPjLNQK1Ivvk88oqJqq
+-4f889OwikGP0eUhOBhbFlsZs+jq5YZC2UzHz+evzKBlgAP1u4lP/cB85CnjvWqM+
+-1c/lywFHQ6HOdDeQ1L72tSYMrNOG4XNmLn0h7rx6GoTU7dcFRfseahBCq8mv0IDt
+-IRbTpvlHWPjsSvHz0ZOH
+------END CERTIFICATE-----"""
+-
+     def setUp(self):
+         """Set up an HTTP server to receive log messages, and a HTTPHandler
+         pointing to that server's address and port."""
+@@ -1690,15 +1660,26 @@ IRbTpvlHWPjsSvHz0ZOH
+             if secure:
+                 try:
+                     import ssl
+-                    fd, fn = tempfile.mkstemp()
+-                    os.close(fd)
+-                    with open(fn, 'w') as f:
+-                        f.write(self.PEMFILE)
+-                    sslctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+-                    sslctx.load_cert_chain(fn)
+-                    os.unlink(fn)
+                 except ImportError:
+                     sslctx = None
++                else:
++                    here = os.path.dirname(__file__)
++                    localhost_cert = os.path.join(here, "keycert.pem")
++                    sslctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
++                    sslctx.load_cert_chain(localhost_cert)
++                    # Unfortunately, HTTPHandler doesn't allow us to change the
++                    # SSLContext used by HTTPSConnection, so we have to
++                    # monkeypatch. This can be cleaned up if issue 22788 is
++                    # fixed.
++                    old = ssl._create_default_https_context
++                    def restore_handler():
++                        ssl._create_default_https_context = old
++                    self.addCleanup(restore_handler)
++                    def hack_create_ctx():
++                        ctx = old()
++                        ctx.load_verify_locations(localhost_cert)
++                        return ctx
++                    ssl._create_default_https_context = hack_create_ctx
+             else:
+                 sslctx = None
+             self.server = server = TestHTTPServer(addr, self.handle_request,
+diff --git a/Lib/test/test_ssl.py b/Lib/test/test_ssl.py
+--- a/Lib/test/test_ssl.py
++++ b/Lib/test/test_ssl.py
+@@ -2337,9 +2337,10 @@ else:
+                 d1 = f.read()
+             d2 = ''
+             # now fetch the same data from the HTTPS server
+-            url = 'https://%s:%d/%s' % (
+-                HOST, server.port, os.path.split(CERTFILE)[1])
+-            f = urllib.request.urlopen(url)
++            url = 'https://localhost:%d/%s' % (
++                server.port, os.path.split(CERTFILE)[1])
++            context = ssl.create_default_context(cafile=CERTFILE)
++            f = urllib.request.urlopen(url, context=context)
+             try:
+                 dlen = f.info().get("content-length")
+                 if dlen and (int(dlen) > 0):
+diff --git a/Lib/test/test_urllib2_localnet.py b/Lib/test/test_urllib2_localnet.py
+--- a/Lib/test/test_urllib2_localnet.py
++++ b/Lib/test/test_urllib2_localnet.py
+@@ -545,7 +545,8 @@ class TestUrlopen(unittest.TestCase):
+ 
+     def test_https(self):
+         handler = self.start_https_server()
+-        data = self.urlopen("https://localhost:%s/bizarre" % handler.port)
++        context = ssl.create_default_context(cafile=CERT_localhost)
++        data = self.urlopen("https://localhost:%s/bizarre" % handler.port, context=context)
+         self.assertEqual(data, b"we care a bit")
+ 
+     def test_https_with_cafile(self):
+@@ -584,7 +585,8 @@ class TestUrlopen(unittest.TestCase):
+         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+         context.set_servername_callback(cb_sni)
+         handler = self.start_https_server(context=context, certfile=CERT_localhost)
+-        self.urlopen("https://localhost:%s" % handler.port)
++        context = ssl.create_default_context(cafile=CERT_localhost)
++        self.urlopen("https://localhost:%s" % handler.port, context=context)
+         self.assertEqual(sni_name, "localhost")
+ 
+     def test_sending_headers(self):
+diff --git a/Doc/library/xmlrpc.client.rst a/Doc/library/xmlrpc.client.rst
+--- a/Doc/library/xmlrpc.client.rst
++++ b/Doc/library/xmlrpc.client.rst
+@@ -27,6 +27,10 @@
+    constructed data.  If you need to parse untrusted or unauthenticated data see
+    :ref:`xml-vulnerabilities`.
+ 
++.. versionchanged:: 3.4.3
++
++   For https URIs, :mod:`xmlrpc.client` now performs all the necessary
++   certificate and hostname checks by default
+ 
+ .. class:: ServerProxy(uri, transport=None, encoding=None, verbose=False, \
+                        allow_none=False, use_datetime=False, \
