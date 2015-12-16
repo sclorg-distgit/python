@@ -1,0 +1,98 @@
+# This file contains 3 patches from http://bugs.python.org/issue23700
+
+# HG changeset patch
+# User Serhiy Storchaka <storchaka@gmail.com>
+# Date 1426771395 -7200
+# Node ID 7fa741fe9425d6ca6dcc01ae6232111803e91238
+# Parent  21e783129c1de99f8e9b46130e513a63a23adc91
+Issue #23700: Iterator of NamedTemporaryFile now keeps a reference to
+NamedTemporaryFile instance.  Patch by Bohuslav Kabrda.
+
+diff --git a/Lib/tempfile.py b/Lib/tempfile.py
+--- a/Lib/tempfile.py
++++ b/Lib/tempfile.py
+@@ -426,7 +426,9 @@ class _TemporaryFileWrapper:
+ 
+     # iter() doesn't use __getattr__ to find the __iter__ method
+     def __iter__(self):
+-        return iter(self.file)
++        # don't return iter(self.file), but yield from it to avoid closing
++        # file as long as it's being used as iterator, see issue #23000
++        yield from iter(self.file)
+ 
+ 
+ def NamedTemporaryFile(mode='w+b', buffering=-1, encoding=None,
+diff --git a/Lib/test/test_tempfile.py b/Lib/test/test_tempfile.py
+--- a/Lib/test/test_tempfile.py
++++ b/Lib/test/test_tempfile.py
+@@ -707,6 +707,19 @@ class TestNamedTemporaryFile(BaseTestCas
+             # No reference cycle was created.
+             self.assertIsNone(wr())
+ 
++    def test_iter(self):
++        # Issue #23700: getting iterator from a temporary file should keep
++        # it alive as long as it's being iterated over
++        lines = [b'spam\n', b'eggs\n', b'beans\n']
++        def make_file():
++            f = tempfile.NamedTemporaryFile(mode='w+b')
++            f.write(b''.join(lines))
++            f.seek(0)
++            return f
++        for i, l in enumerate(make_file()):
++            self.assertEqual(l, lines[i])
++        self.assertEqual(i, len(lines) - 1)
++
+     def test_creates_named(self):
+         # NamedTemporaryFile creates files with names
+         f = tempfile.NamedTemporaryFile()
+# HG changeset patch
+# User Serhiy Storchaka <storchaka@gmail.com>
+# Date 1426860680 -7200
+# Node ID a90ec6b96af2cd78f81286dff92be2c92a8a9d0c
+# Parent  59b8a83ea50b0a63045ee7bebd374332bbddce6c
+Issue #23700: NamedTemporaryFile iterator closed underlied file object in
+some circunstances while NamedTemporaryFile object was living.  This causes
+failing test_csv.  Changed the implementation of NamedTemporaryFile.__iter__
+to make tests passed.
+
+diff --git a/Lib/tempfile.py b/Lib/tempfile.py
+--- a/Lib/tempfile.py
++++ b/Lib/tempfile.py
+@@ -426,9 +426,11 @@ class _TemporaryFileWrapper:
+ 
+     # iter() doesn't use __getattr__ to find the __iter__ method
+     def __iter__(self):
+-        # don't return iter(self.file), but yield from it to avoid closing
+-        # file as long as it's being used as iterator, see issue #23000
+-        yield from iter(self.file)
++        # Don't return iter(self.file), but yield from it to avoid closing
++        # file as long as it's being used as iterator, see issue #23000.
++        # XXX Also don't use "yield from"!
++        for line in self.file:
++            yield line
+ 
+ 
+ def NamedTemporaryFile(mode='w+b', buffering=-1, encoding=None,
+# HG changeset patch
+# User R David Murray <rdmurray@bitdance.com>
+# Date 1427042026 14400
+# Node ID e9f03315d66c9dd036fc83acf9abd2d68107adfa
+# Parent  e5de4ee6aa4ac71f0978a2897b15ca5cf4124f1f
+#23700: fix/improve comment
+
+diff --git a/Lib/tempfile.py b/Lib/tempfile.py
+--- a/Lib/tempfile.py
++++ b/Lib/tempfile.py
+@@ -427,8 +427,10 @@ class _TemporaryFileWrapper:
+     # iter() doesn't use __getattr__ to find the __iter__ method
+     def __iter__(self):
+         # Don't return iter(self.file), but yield from it to avoid closing
+-        # file as long as it's being used as iterator, see issue #23000.
+-        # XXX Also don't use "yield from"!
++        # file as long as it's being used as iterator (see issue #23700).  We
++        # can't use 'yield from' here because iter(file) returns the file
++        # object itself, which has a close method, and thus the file would get
++        # closed when the generator is finalized, due to PEP380 semantics.
+         for line in self.file:
+             yield line
+ 
