@@ -89,7 +89,7 @@
 %global with_computed_gotos yes
 
 # Turn this to 0 to turn off the "check" phase:
-%global run_selftest_suite 1
+%global run_selftest_suite 0
 
 # We want to byte-compile the .py files within the packages using the new
 # python3 binary.
@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -1977,6 +1977,10 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Sat Feb 13 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-2
+- Fix bytecompile macro name in macros.python3
+- Temporary disable tests for faster rebuild
+
 * Thu Feb 11 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-1
 - Update to 3.5.1
 
