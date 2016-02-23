@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 3%{?dist}
+Release: 4%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -678,11 +678,6 @@ Patch196: 00196-test-gdb-match-addr-before-builtin.patch
 # FIXED UPSTREAM
 # Patch197: 00197-fix-CVE-2014-4650.patch
 
-# 00200 #
-# Fix for gettext plural form headers (lines that begin with "#")
-# Note: Backported from scl
-Patch200: 00200-gettext-plural-fix.patch
-
 # 00201 #
 # Fixes memory leak in gdbm module (rhbz#977308)
 # This was upstreamed as a part of bigger patch, but for our purposes
@@ -979,7 +974,7 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 #00167: TODO
 #00168: TODO
 #00169: TODO
-#00170: TODO
+%patch170 -p0
 #00171: TODO
 #00172: TODO
 %patch173 -p1
@@ -1009,6 +1004,7 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 # 00195: upstream as of Python 3.4.2
 %patch196 -p1
 # 00197: upstream as of Python 3.4.2
+%patch201 -p0
 # 00202: upstream as of 3.5.0b3
 %patch203 -p1
 # 00204: upstream as of 3.5.0b3
@@ -1978,6 +1974,9 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Wed Feb 17 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-4
+- Properly apply patches 170&201, remove duplicated Patch200(207)
+
 * Sat Feb 13 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-3
 - Rebuild with rewheel, enable tests
 
