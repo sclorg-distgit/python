@@ -1,0 +1,13 @@
+diff -up Python-2.7.5/setup.py.orig Python-2.7.5/setup.py
+--- Python-2.7.5/setup.py.orig	2013-07-17 15:20:12.086820082 +0200
++++ Python-2.7.5/setup.py	2013-07-17 15:21:28.490023903 +0200
+@@ -2050,7 +2050,8 @@ class PyBuildExt(build_ext):
+                 if not line:
+                     ffi_inc = None
+                     break
+-                if line.startswith('#define LIBFFI_H'):
++                if line.startswith('#define LIBFFI_H') or \
++                   line.startswith('#define ffi_wrapper_h'):
+                     break
+         ffi_lib = None
+         if ffi_inc is not None:

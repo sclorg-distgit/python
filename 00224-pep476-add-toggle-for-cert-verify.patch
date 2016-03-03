@@ -1,0 +1,104 @@
+diff -up Python-2.7.5/Lib/ssl.py.cert Python-2.7.5/Lib/ssl.py
+--- Python-2.7.5/Lib/ssl.py.cert	2015-03-30 14:52:12.172241615 +0200
++++ Python-2.7.5/Lib/ssl.py	2015-03-30 15:16:49.168185354 +0200
+@@ -466,8 +466,27 @@ def _create_unverified_context(protocol=
+ 
+     return context
+ 
++_cert_verification_config = '/etc/python/cert-verification.cfg'
++
++def _get_verify_status(protocol):
++   context_factory = {
++       'platform_default': _create_unverified_context,
++       'enable': create_default_context,
++       'disable': _create_unverified_context
++   }
++   import ConfigParser
++   try:
++       config = ConfigParser.RawConfigParser()
++       config.read(_cert_verification_config)
++       status = config.get(protocol, 'verify')
++   except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
++       status = 'platform_default'
++   default = context_factory.get('platform_default')
++   return context_factory.get(status, default)
++
++
+ # Used by http.client if no context is explicitly passed.
+-_create_default_https_context = create_default_context
++_create_default_https_context = _get_verify_status('https')
+ 
+ 
+ # Backwards compatibility alias, even though it's not a public name.
+diff -up Python-2.7.5/Lib/test/test_httplib.py.cert Python-2.7.5/Lib/test/test_httplib.py
+--- Python-2.7.5/Lib/test/test_httplib.py.cert	2015-03-30 16:45:30.738794461 +0200
++++ Python-2.7.5/Lib/test/test_httplib.py	2015-03-30 16:54:48.065062351 +0200
+@@ -516,12 +516,24 @@ class HTTPSTest(TestCase):
+         h = httplib.HTTPSConnection(HOST, TimeoutTest.PORT, timeout=30)
+         self.assertEqual(h.timeout, 30)
+ 
++    def test_networked_default(self):
++        # specific to RHEL
++        # Default settings: doesnt requires a valid cert from a trusted CA
++        test_support.requires('network')
++        with test_support.transient_internet('self-signed.pythontest.net'):
++            h = httplib.HTTPSConnection('self-signed.pythontest.net', 443)
++            h.request('GET', '/')
++            resp = h.getresponse()
++            self.assertIn('nginx', resp.getheader('server'))
++
++    # We have to pass safe context to test cert verification
++    # RHEL by default disable cert verification
+     def test_networked(self):
+-        # Default settings: requires a valid cert from a trusted CA
+         import ssl
+         test_support.requires('network')
+         with test_support.transient_internet('self-signed.pythontest.net'):
+-            h = httplib.HTTPSConnection('self-signed.pythontest.net', 443)
++            context = ssl.create_default_context()
++            h = httplib.HTTPSConnection('self-signed.pythontest.net', 443, context=context)
+             with self.assertRaises(ssl.SSLError) as exc_info:
+                 h.request('GET', '/')
+             self.assertEqual(exc_info.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
+@@ -542,8 +554,10 @@ class HTTPSTest(TestCase):
+     def test_networked_trusted_by_default_cert(self):
+         # Default settings: requires a valid cert from a trusted CA
+         test_support.requires('network')
++        import ssl
+         with test_support.transient_internet('www.python.org'):
+-            h = httplib.HTTPSConnection('www.python.org', 443)
++            context = ssl.create_default_context()
++            h = httplib.HTTPSConnection('www.python.org', 443, context=context)
+             h.request('GET', '/')
+             resp = h.getresponse()
+             content_type = resp.getheader('content-type')
+@@ -579,7 +592,8 @@ class HTTPSTest(TestCase):
+         # The custom cert isn't known to the default trust bundle
+         import ssl
+         server = self.make_server(CERT_localhost)
+-        h = httplib.HTTPSConnection('localhost', server.port)
++        context = ssl.create_default_context()
++        h = httplib.HTTPSConnection('localhost', server.port, context=context)
+         with self.assertRaises(ssl.SSLError) as exc_info:
+             h.request('GET', '/')
+         self.assertEqual(exc_info.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
+@@ -624,6 +638,9 @@ class HTTPSTest(TestCase):
+         for hp in ("www.python.org:abc", "user:password@www.python.org"):
+             self.assertRaises(httplib.InvalidURL, httplib.HTTPSConnection, hp)
+ 
++        import ssl
++        context = ssl.create_default_context()
++
+         for hp, h, p in (("[fe80::207:e9ff:fe9b]:8000",
+                           "fe80::207:e9ff:fe9b", 8000),
+                          ("www.python.org:443", "www.python.org", 443),
+@@ -632,7 +648,7 @@ class HTTPSTest(TestCase):
+                          ("[fe80::207:e9ff:fe9b]", "fe80::207:e9ff:fe9b", 443),
+                          ("[fe80::207:e9ff:fe9b]:", "fe80::207:e9ff:fe9b",
+                              443)):
+-            c = httplib.HTTPSConnection(hp)
++            c = httplib.HTTPSConnection(hp, context=context)
+             self.assertEqual(h, c.host)
+             self.assertEqual(p, c.port)
+
+  
