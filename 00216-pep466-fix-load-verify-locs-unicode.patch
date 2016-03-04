@@ -1,0 +1,72 @@
+
+# HG changeset patch
+# User Benjamin Peterson <benjamin@python.org>
+# Date 1409232801 14400
+# Node ID 97081a80f487841d81aeed55d398a1dba1faca00
+# Parent  3ae399c6ecf685086ebf07e17717955f21e14cb8
+fix load_verify_locations on unicode paths (closes #22244)
+
+diff --git a/Lib/test/test_ssl.py b/Lib/test/test_ssl.py
+--- a/Lib/test/test_ssl.py
++++ b/Lib/test/test_ssl.py
+@@ -850,11 +850,14 @@ class ContextTests(unittest.TestCase):
+         ctx.load_verify_locations(cafile=CERTFILE, capath=None)
+         ctx.load_verify_locations(BYTES_CERTFILE)
+         ctx.load_verify_locations(cafile=BYTES_CERTFILE, capath=None)
++        ctx.load_verify_locations(cafile=BYTES_CERTFILE.decode('utf-8'))
+         self.assertRaises(TypeError, ctx.load_verify_locations)
+         self.assertRaises(TypeError, ctx.load_verify_locations, None, None, None)
+         with self.assertRaises(IOError) as cm:
+             ctx.load_verify_locations(WRONGCERT)
+         self.assertEqual(cm.exception.errno, errno.ENOENT)
++        with self.assertRaises(IOError):
++            ctx.load_verify_locations(u'')
+         with self.assertRaisesRegexp(ssl.SSLError, "PEM lib"):
+             ctx.load_verify_locations(BADCERT)
+         ctx.load_verify_locations(CERTFILE, CAPATH)
+diff --git a/Modules/_ssl.c b/Modules/_ssl.c
+--- a/Modules/_ssl.c
++++ b/Modules/_ssl.c
+@@ -2628,17 +2628,33 @@ load_verify_locations(PySSLContext *self
+     }
+ 
+     if (cafile) {
+-        cafile_bytes = PyString_AsEncodedObject(
+-            cafile, Py_FileSystemDefaultEncoding, "strict");
+-        if (!cafile_bytes) {
+-            goto error;
++        if (PyString_Check(cafile)) {
++            Py_INCREF(cafile);
++            cafile_bytes = cafile;
++        } else {
++            PyObject *u = PyUnicode_FromObject(cafile);
++            if (!u)
++                goto error;
++            cafile_bytes = PyUnicode_AsEncodedString(
++                u, Py_FileSystemDefaultEncoding, NULL);
++            Py_DECREF(u);
++            if (!cafile_bytes)
++                goto error;
+         }
+     }
+     if (capath) {
+-        capath_bytes = PyString_AsEncodedObject(
+-            capath, Py_FileSystemDefaultEncoding, "strict");
+-        if (!capath_bytes) {
+-            goto error;
++        if (PyString_Check(capath)) {
++            Py_INCREF(capath);
++            capath_bytes = capath;
++        } else {
++            PyObject *u = PyUnicode_FromObject(capath);
++            if (!u)
++                goto error;
++            capath_bytes = PyUnicode_AsEncodedString(
++                u, Py_FileSystemDefaultEncoding, NULL);
++            Py_DECREF(u);
++            if (!capath_bytes)
++                goto error;
+         }
+     }
+ 
+

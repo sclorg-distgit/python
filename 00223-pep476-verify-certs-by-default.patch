@@ -1,0 +1,153 @@
+
+# HG changeset patch
+# User Benjamin Peterson <benjamin@python.org>
+# Date 1416798122 21600
+# Node ID fb83916c3ea12899569e88a7505469a90ab1f674
+# Parent  c84f36a5f556867c2ec50453dc879a500032d377
+pep 476: verify certificates by default (#22417)
+
+diff --git a/Doc/library/httplib.rst b/Doc/library/httplib.rst
+--- a/Doc/library/httplib.rst
++++ b/Doc/library/httplib.rst
+@@ -90,9 +90,6 @@ The module provides the following classe
+       server's certificate.  If you want to change that behaviour, you can
+       explicitly set *check_hostname* to False.
+ 
+-   .. warning::
+-      This does not do any verification of the server's certificate.
+-
+    .. versionadded:: 2.0
+ 
+    .. versionchanged:: 2.6
+@@ -104,6 +101,11 @@ The module provides the following classe
+    .. versionchanged:: 2.7.9
+       *context* and *check_hostname* was added.
+ 
++      This class now performs all the necessary certificate and hostname checks
++      by default. To revert to the previous, unverified, behavior
++      :func:`ssl._create_unverified_context` can be passed to the *context*
++      parameter.
++
+ 
+ .. class:: HTTPResponse(sock, debuglevel=0, strict=0)
+ 
+diff --git a/Lib/httplib.py b/Lib/httplib.py
+--- a/Lib/httplib.py
++++ b/Lib/httplib.py
+@@ -1193,7 +1193,7 @@ else:
+             self.key_file = key_file
+             self.cert_file = cert_file
+             if context is None:
+-                context = ssl.create_default_context()
++                context = ssl._create_default_https_context()
+             will_verify = context.verify_mode != ssl.CERT_NONE
+             if check_hostname is None:
+                 check_hostname = will_verify
+diff --git a/Lib/ssl.py b/Lib/ssl.py
+--- a/Lib/ssl.py
++++ b/Lib/ssl.py
+@@ -427,8 +427,7 @@ def create_default_context(purpose=Purpo
+         context.load_default_certs(purpose)
+     return context
+ 
+-
+-def _create_stdlib_context(protocol=PROTOCOL_SSLv23, cert_reqs=None,
++def _create_unverified_context(protocol=PROTOCOL_SSLv23, cert_reqs=None,
+                            check_hostname=False, purpose=Purpose.SERVER_AUTH,
+                            certfile=None, keyfile=None,
+                            cafile=None, capath=None, cadata=None):
+@@ -469,6 +468,14 @@ def _create_stdlib_context(protocol=PROT
+ 
+     return context
+ 
++# Used by http.client if no context is explicitly passed.
++_create_default_https_context = create_default_context
++
++
++# Backwards compatibility alias, even though it's not a public name.
++_create_stdlib_context = _create_unverified_context
++
++
+ class SSLSocket(socket):
+     """This class implements a subtype of socket.socket that wraps
+     the underlying OS socket in an SSL context when necessary, and
+diff --git a/Lib/test/test_httplib.py b/Lib/test/test_httplib.py
+--- a/Lib/test/test_httplib.py
++++ b/Lib/test/test_httplib.py
+@@ -1,10 +1,9 @@
+ import httplib
+ import array
+-import httplib
+-import os
+ import StringIO
+ import socket
+ import errno
++import os
+ 
+ import unittest
+ TestCase = unittest.TestCase
+diff --git a/Lib/test/test_urllib2_localnet.py b/Lib/test/test_urllib2_localnet.py
+--- a/Lib/test/test_urllib2_localnet.py
++++ b/Lib/test/test_urllib2_localnet.py
+@@ -5,6 +5,7 @@ import urllib2
+ import BaseHTTPServer
+ import unittest
+ import hashlib
++import ssl
+ 
+ from test import test_support
+ 
+@@ -562,15 +563,37 @@ class TestUrlopen(BaseTestCase):
+                             cafile=CERT_localhost)
+         self.assertEqual(data, b"we care a bit")
+         # Bad cert
+-        with self.assertRaises(urllib2.URLError) as cm:
++        with self.assertRaises(urllib2.URLError):
+             self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                          cafile=CERT_fakehostname)
+         # Good cert, but mismatching hostname
+         handler = self.start_https_server(certfile=CERT_fakehostname)
+-        with self.assertRaises(ssl.CertificateError) as cm:
++        with self.assertRaises(ssl.CertificateError):
+             self.urlopen("https://localhost:%s/bizarre" % handler.port,
+                          cafile=CERT_fakehostname)
+ 
++    def test_https_with_cadefault(self):
++        handler = self.start_https_server(certfile=CERT_localhost)
++        # Self-signed cert should fail verification with system certificate store
++        with self.assertRaises(urllib2.URLError):
++            self.urlopen("https://localhost:%s/bizarre" % handler.port,
++                         cadefault=True)
++
++    def test_https_sni(self):
++        if ssl is None:
++            self.skipTest("ssl module required")
++        if not ssl.HAS_SNI:
++            self.skipTest("SNI support required in OpenSSL")
++        sni_name = [None]
++        def cb_sni(ssl_sock, server_name, initial_context):
++            sni_name[0] = server_name
++        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
++        context.set_servername_callback(cb_sni)
++        handler = self.start_https_server(context=context, certfile=CERT_localhost)
++        context = ssl.create_default_context(cafile=CERT_localhost)
++        self.urlopen("https://localhost:%s" % handler.port, context=context)
++        self.assertEqual(sni_name[0], "localhost")
++
+     def test_sending_headers(self):
+         handler = self.start_server([(200, [], "we don't care")])
+ 
+diff -up Python-2.7.5/Doc/library/xmlrpclib.rst.ver Python-2.7.5/Doc/library/xmlrpclib.rst
+--- Python-2.7.5/Doc/library/xmlrpclib.rst.ver	2015-03-30 13:59:29.243493601 +0200
++++ Python-2.7.5/Doc/library/xmlrpclib.rst	2015-03-30 14:03:40.509532180 +0200
+@@ -34,6 +34,10 @@ between conformable Python objects and X
+    constructed data.  If you need to parse untrusted or unauthenticated data see
+    :ref:`xml-vulnerabilities`.
+ 
++.. versionchanged:: 2.7.9
++
++   For https URIs, :mod:`xmlrpclib` now performs all the necessary certificate
++   and hostname checks by default
+ 
+ .. class:: ServerProxy(uri[, transport[, encoding[, verbose[,  allow_none[, use_datetime]]]]])
+ 

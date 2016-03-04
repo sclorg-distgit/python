@@ -120,7 +120,7 @@ Summary: An interpreted, interactive, object-oriented programming language
 Name: %{?scl_prefix}%{python}
 # Remember to also rebase python-docs when changing this:
 Version: 2.7.8
-Release: 3%{?dist}
+Release: 6%{?dist}
 License: Python
 Group: Development/Languages
 %{?scl:Requires: %{scl}-runtime}
@@ -184,7 +184,7 @@ BuildRequires: zlib-devel
 Source: http://www.python.org/ftp/python/%{version}/Python-%{version}.tar.xz
 
 # SCL-custom version of pythondeps.sh
-Source2: pythondeps-scl.sh
+# Moved to metapackage python27
 
 # Work around bug 562906 until it's fixed in rpm-build by providing a fixed
 # version of pythondeps.sh:
@@ -211,6 +211,10 @@ Source5: pyfuntop.stp
 Source6: macros.python2
 
 Source7: brp-python-bytecompile-with-scl-python
+
+# Configuration file to change ssl verification settings globally
+# Downstream only see Patch224
+Source8: cert-verification.cfg
 
 # Modules/Setup.dist is ultimately used by the "makesetup" script to construct
 # the Makefile and config.c
@@ -904,6 +908,79 @@ Patch196: CVE-2013-1752.patch
 # rhbz#1046170
 Patch197: xmlrpc_gzip_27_parameter.patch
 
+# ================== PEP466===========================
+# Massive backport of PEP466 and relevant other fixes
+# ================rhbz#1111461========================
+# 00213 #
+# Fix %S, %R and %V formats of PyUnicode_FromFormat().
+# http://bugs.python.org/issue122023
+Patch213: 00213-pep466-pyunicode_fromformat-fix-formats.patch
+
+# 00214 #
+# Backport SSL module from Python3
+# http://bugs.python.org/issue21308
+Patch214: 00214-pep466-backport-py3-ssl-changes.patch
+
+# 00215 #
+# OpenSSL disabled various ciphers and protocols
+# we have to reflect it in tests
+Patch215: 00215-pep466-reflect-openssl-settings-ssltests.patch
+
+# 00216 #
+# fix load_verify_locations on unicode paths
+# http://bugs.python.org/issue22244
+Patch216: 00216-pep466-fix-load-verify-locs-unicode.patch
+
+# 00217 #
+# backport hashlib changes
+# http://bugs.python.org/issue21307
+Patch217: 00217-pep466-backport-hashlib-algorithm-consts.patch
+
+# 00218 #
+# update os.urandom
+# http://bugs.python.org/issue21305
+Patch218: 00218-pep466-backport-urandom-pers-fd.patch
+
+# 00219 #
+# Lib/ssl.py still references _ssl.sslwrap
+# http://bugs.python.org/issue22523
+Patch219: 00219-pep466-fix-referenced-sslwrap.patch
+
+# 00220 #
+# allow passing cert/ssl information to urllib2.urlopen and httplib.HTTPSConnection
+Patch220: 00220-pep466-allow-passing-ssl-urrlib-httplib.patch
+
+# 00221 #
+# Patch214 remove sslwrap from _ssl.c this so we have to reimplement it
+Patch221: 00221-pep466-backport-sslwrap-c-ssl.patch
+
+# 00222 #
+# test_ssl: fails on recent libressl version with BAD_DH_P_LENGTH
+# https://bugs.python.org/issue23844
+Patch222: 00222-add-2014-bit-dh-key.patch
+
+# 00223 #
+# PEP 476: verify HTTPS certificates by default
+# http://bugs.python.org/issue22417
+# Resolves:rhbz#1219110
+Patch223: 00223-pep476-verify-certs-by-default.patch
+
+# 00224 #
+# Add switch to toggle global verification on and off
+# Resolves:rhbz#1219108
+# For more information see PEP493
+Patch224: 00224-pep476-add-toggle-for-cert-verify.patch
+
+# 00227 #
+# Make load_cert_chain function of SSLContext accept
+# keyfile which is set to None
+# Resolves: rhbz#1250611
+Patch227: 00227-accept-none-keyfile-loadcertchain.patch
+
+# 00228 #
+# Backport SSLSocket.version function
+# Resolves: rhbz#1259421
+Patch228: 00228-backport-ssl-version.patch
 
 # (New patches go here ^^^)
 #
@@ -960,10 +1037,16 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 URL: http://www.python.org/
 
+%if ( 0%{?rhel} && 0%{?rhel} < 7 )
 # filter pkgconfig Provides
 %{?scl:%filter_from_provides s|pkgconfig(|%{?scl_prefix}pkgconfig(|g}
 %{?scl:%filter_from_requires s|python(abi|%{?scl_prefix}python(abi|g}
 %{?scl:%filter_setup}
+%else
+# filter pkgconfig Requires/Provides on rhel7 as filter_from doesnt work there
+%global __provides_exclude ^pkgconfig\\(.*$
+%endif
+
 
 %description
 Python is an interpreted, interactive, object-oriented programming
@@ -1011,6 +1094,13 @@ Conflicts: %{?scl_prefix}%{python} < %{version}-%{release}
 %if %{main_python}
 Obsoletes: %{?scl_prefix}python2-devel
 Provides: %{?scl_prefix}python2-devel = %{version}-%{release}
+%endif
+
+# we filtered provides of pkgconfig on rhel7 so we need to manully re add them
+%if ( 0%{?rhel} && 0%{?rhel} >= 7 )
+Provides: %{?scl_prefix}pkgconfig(python) = %{version}-%{release}
+Provides: %{?scl_prefix}pkgconfig(python-2.7) = %{version}-%{release}
+Provides: %{?scl_prefix}pkgconfig(python2) = %{version}-%{release}
 %endif
 
 %description devel
@@ -1084,6 +1174,13 @@ Requires: %{?scl_prefix}%{pkg_name}-devel%{?_isa} = %{version}-%{release}
 Requires: %{?scl_prefix}%{pkg_name}-test%{?_isa} = %{version}-%{release}
 Requires: %{?scl_prefix}tkinter%{?_isa} = %{version}-%{release}
 Requires: %{?scl_prefix}%{pkg_name}-tools%{?_isa} = %{version}-%{release}
+
+# we filtered provides of pkgconfig on rhel7 so we need to manully re add them
+%if ( 0%{?rhel} && 0%{?rhel} >= 7 )
+Provides: %{?scl_prefix}pkgconfig(python-debug) = %{version}-%{release}
+Provides: %{?scl_prefix}pkgconfig(python-2.7-debug) = %{version}-%{release}
+Provides: %{?scl_prefix}pkgconfig(python2-debug) = %{version}-%{release}
+%endif
 
 %description debug
 python-debug provides a version of the Python runtime with numerous debugging
@@ -1261,6 +1358,20 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 %patch196 -p1
 %patch197 -p1
 
+%patch213 -p1
+%patch214 -p1
+%patch215 -p1
+%patch216 -p1
+%patch217 -p1
+%patch218 -p1
+%patch219 -p1
+%patch220 -p1
+%patch221 -p1
+%patch222 -p1
+%patch223 -p1
+%patch224 -p1
+%patch227 -p1
+%patch228 -p1
 
 # This shouldn't be necesarry, but is right now (2.2a3)
 find -name "*~" |xargs rm -f
@@ -1419,7 +1530,6 @@ done
 
 # install SCL custom RPM scripts
 %{?scl:mkdir -p %{buildroot}%{_root_prefix}/lib/rpm/redhat}
-%{?scl:cp -a %{SOURCE2} %{buildroot}%{_root_prefix}/lib/rpm}
 %{?scl:cp -a %{SOURCE7} %{buildroot}%{_root_prefix}/lib/rpm/redhat}
 
 InstallPython() {
@@ -1640,6 +1750,10 @@ install -m 644 %{SOURCE6} %{buildroot}/%{?scl:%_root_sysconfdir}%{!?scl:%_syscon
 %{?scl:sed -i 's|^\(%@scl@__python2\)|\1 %{_bindir}/python2|' %{buildroot}%{_root_sysconfdir}/rpm/macros.python2.%{scl}}
 %{?scl:sed -i 's|@scl@|%{scl}|g' %{buildroot}%{_root_sysconfdir}/rpm/macros.python2.%{scl}}
 
+# Make python folder for config files under /etc
+mkdir -p %{buildroot}/%{_sysconfdir}/python
+install -m 644 %{SOURCE8} %{buildroot}/%{_sysconfdir}/python
+
 # Ensure that the curses module was linked against libncursesw.so, rather than
 # libncurses.so (bug 539917)
 ldd %{buildroot}/%{dynload_dir}/_curses*.so \
@@ -1788,6 +1902,8 @@ rm -fr %{buildroot}
 %doc LICENSE README
 %dir %{pylibdir}
 %dir %{dynload_dir}
+%dir %{_sysconfdir}/python
+%config(noreplace) %{_sysconfdir}/python/cert-verification.cfg
 %{dynload_dir}/Python-%{version}-py%{pybasever}.egg-info
 %{dynload_dir}/_bisectmodule.so
 %{dynload_dir}/_bsddb.so
@@ -1921,7 +2037,6 @@ rm -fr %{buildroot}
 
 %files devel
 %defattr(-,root,root,-)
-%{?scl:%{_root_prefix}/lib/rpm/pythondeps-scl.sh}
 %{?scl:%{_root_prefix}/lib/rpm/redhat/brp-python-bytecompile-with-scl-python}
 # we have to own pkgconfig dir, as it's not owned by any other scl package
 %dir %{_libdir}/pkgconfig
@@ -2122,6 +2237,17 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Wed Feb 24 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-6
+- Add missing cert-verification.cfg file
+Resolves: rhbz#1311044
+
+* Wed Feb 17 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-5
+- Fix filtering pkgconfig Requires/Provides on rhel7
+
+* Tue Feb 16 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-4
+- Massive backport of ssl module from python3 aka PEP466
+Resolves: rhbz#1111464
+
 * Tue May 19 2015 Matej Stuchlik <mstuchli@redhat.com> - 2.7.8-3
 - Add httplib fix for CVE-2013-1752
 Resolves: rhbz#1187779
