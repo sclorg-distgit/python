@@ -1,0 +1,36 @@
+From 0fba878e37390b581b95b31ff7d42041c9a3a370 Mon Sep 17 00:00:00 2001
+From: Charalampos Stratakis <cstratak@redhat.com>
+Date: Tue, 12 Apr 2016 14:17:32 +0200
+Subject: [PATCH] add choices for sort option of cProfile for better output
+ message
+
+---
+ Lib/cProfile.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Lib/cProfile.py b/Lib/cProfile.py
+index b2efd04..02acd4e 100755
+--- a/Lib/cProfile.py
++++ b/Lib/cProfile.py
+@@ -161,7 +161,7 @@ def label(code):
+ # ____________________________________________________________
+ 
+ def main():
+-    import os, sys
++    import os, pstats, sys
+     from optparse import OptionParser
+     usage = "cProfile.py [-o output_file_path] [-s sort] scriptfile [arg] ..."
+     parser = OptionParser(usage=usage)
+@@ -170,7 +170,8 @@ def main():
+         help="Save stats to <outfile>", default=None)
+     parser.add_option('-s', '--sort', dest="sort",
+         help="Sort order when printing to stdout, based on pstats.Stats class",
+-        default=-1)
++        default=-1,
++        choices=pstats.Stats.sort_arg_dict_default.keys())
+ 
+     if not sys.argv[1:]:
+         parser.print_usage()
+-- 
+2.5.5
+

@@ -120,7 +120,7 @@ Summary: An interpreted, interactive, object-oriented programming language
 Name: %{?scl_prefix}%{python}
 # Remember to also rebase python-docs when changing this:
 Version: 2.7.8
-Release: 6%{?dist}
+Release: 13%{?dist}
 License: Python
 Group: Development/Languages
 %{?scl:Requires: %{scl}-runtime}
@@ -982,6 +982,25 @@ Patch227: 00227-accept-none-keyfile-loadcertchain.patch
 # Resolves: rhbz#1259421
 Patch228: 00228-backport-ssl-version.patch
 
+# ================== !PEP466 ===========================
+
+# 00229 #
+# Initialize OpenSSL_add_all_digests in _hashlib
+# Resolves: rhbz#1318319
+Patch229: 00229-fix-hashlib-openssl-init.patch
+
+# 00230 #
+# Adjusted tests to determine existence or lack of SSLv2 support
+# Resolves: rhbz#1319703
+Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
+
+# 00231 #
+# Add choices for sort option of cProfile for better output message
+# http://bugs.python.org/issue23420
+# Resolves: rhbz#1319655
+Patch231: 00231-cprofile-sort-option.patch
+
+
 # (New patches go here ^^^)
 #
 # When adding new patches to "python" and "python3" in Fedora 17 onwards,
@@ -1372,6 +1391,9 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 %patch224 -p1
 %patch227 -p1
 %patch228 -p1
+%patch229 -p1
+%patch230 -p1
+%patch231 -p1
 
 # This shouldn't be necesarry, but is right now (2.2a3)
 find -name "*~" |xargs rm -f
@@ -2237,6 +2259,36 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Tue Apr 19 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-13
+- Modified 00214-pep466-backport-py3-ssl-changes.patch to apply correctly
+Resolves: rhbz#1111464
+
+* Tue Apr 19 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-12
+- Modified 00224-pep476-add-toggle-for-cert-verify.patch to use certificate verification
+config file from python27 SCL directory.
+Resolves: rhbz#1111464
+
+* Tue Apr 12 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-11
+- Add choices for sort option of cProfile for better output
+Resolves: rhbz#1319655
+
+* Tue Apr 12 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-10
+- Modified patch so tests can acknowledge the existense or lack
+of SSLv2 support
+Resolves: rhbz#1319703
+
+* Wed Apr 06 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-9
+- Adjusted tests to acknowledge lack of SSLv2 support
+Resolves: rhbz#1319703
+
+* Wed Apr 06 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-8
+- Change HTTPS certificate verification to platform_default
+Resolves: rhbz#1319774
+
+* Wed Mar 09 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-7
+- Initialize OpenSSL_add_all_digests in _hashlib
+Resolves: rhbz#1318319
+
 * Wed Feb 24 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-6
 - Add missing cert-verification.cfg file
 Resolves: rhbz#1311044

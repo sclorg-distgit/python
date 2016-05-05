@@ -1,0 +1,74 @@
+From 4f118fdad37e47301047a0729552ff8f5e80ffcf Mon Sep 17 00:00:00 2001
+From: Charalampos Stratakis <cstratak@redhat.com>
+Date: Tue, 12 Apr 2016 12:59:36 +0200
+Subject: [PATCH] Adjusted tests to determine if SSLv2 is enabled or not
+
+---
+ Lib/test/test_ssl.py | 30 ++++++++++++++++++++++++------
+ 1 file changed, 24 insertions(+), 6 deletions(-)
+
+diff --git a/Lib/test/test_ssl.py b/Lib/test/test_ssl.py
+index 498a489..9bf3260 100644
+--- a/Lib/test/test_ssl.py
++++ b/Lib/test/test_ssl.py
+@@ -104,6 +104,12 @@ def no_sslv2_implies_sslv3_hello():
+     # 0.9.7h or higher
+     return ssl.OPENSSL_VERSION_INFO >= (0, 9, 7, 8, 15)
+ 
++def default_context_has_no_sslv2():
++    # Function for tests to determine if openssl package has disabled SSLv2 or not
++    # See rhbz#1319703
++    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
++    return ctx.options & ssl.OP_NO_SSLv2
++
+ def have_verify_flags():
+     # 0.9.8 or higher
+     return ssl.OPENSSL_VERSION_INFO >= (0, 9, 8, 0, 15)
+@@ -709,7 +715,10 @@ class ContextTests(unittest.TestCase):
+     @skip_if_broken_ubuntu_ssl
+     def test_options(self):
+         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+-        self.assertEqual(ssl.OP_ALL, ctx.options)
++        if default_context_has_no_sslv2():
++            self.assertEqual(ssl.OP_ALL | ssl.OP_NO_SSLv2, ctx.options)
++        else:
++            self.assertEqual(ssl.OP_ALL, ctx.options)
+         ctx.options |= ssl.OP_NO_SSLv2
+         self.assertEqual(ssl.OP_ALL | ssl.OP_NO_SSLv2,
+                          ctx.options)
+@@ -2170,7 +2179,10 @@ else:
+             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True)
+             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True, ssl.CERT_OPTIONAL)
+             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True, ssl.CERT_REQUIRED)
+-            try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True)
++            if default_context_has_no_sslv2():
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, False)
++            else:
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True)
+             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv3, False)
+             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_TLSv1, False)
+             # SSLv23 client with specific SSL options
+@@ -2178,10 +2190,16 @@ else:
+                 # No SSLv2 => client will use an SSLv3 hello on recent OpenSSLs
+                 try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, False,
+                                    client_options=ssl.OP_NO_SSLv2)
+-            try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True,
+-                               client_options=ssl.OP_NO_SSLv3)
+-            try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True,
+-                               client_options=ssl.OP_NO_TLSv1)
++            if default_context_has_no_sslv2():
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, False,
++                                client_options=ssl.OP_NO_SSLv3)
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, False,
++                                client_options=ssl.OP_NO_TLSv1)
++            else:
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True,
++                                client_options=ssl.OP_NO_SSLv3)
++                try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv23, True,
++                                client_options=ssl.OP_NO_TLSv1)
+ 
+         @skip_if_broken_ubuntu_ssl
+         def test_protocol_sslv23(self):
+-- 
+2.5.5
+
