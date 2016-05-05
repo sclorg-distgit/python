@@ -120,7 +120,7 @@ Summary: An interpreted, interactive, object-oriented programming language
 Name: %{?scl_prefix}%{python}
 # Remember to also rebase python-docs when changing this:
 Version: 2.7.8
-Release: 6%{?dist}
+Release: 15%{?dist}
 License: Python
 Group: Development/Languages
 %{?scl:Requires: %{scl}-runtime}
@@ -139,6 +139,7 @@ Provides: %{?scl_prefix}python(abi) = %{pybasever}
 BuildRequires: autoconf
 BuildRequires: bzip2
 BuildRequires: bzip2-devel
+BuildRequires: db4-devel
 BuildRequires: expat-devel
 BuildRequires: findutils
 BuildRequires: gcc-c++
@@ -147,7 +148,6 @@ BuildRequires: gdbm-devel
 %endif
 BuildRequires: glibc-devel
 BuildRequires: gmp-devel
-BuildRequires: libdb-devel
 BuildRequires: libffi-devel
 BuildRequires: libGL-devel
 BuildRequires: libX11-devel
@@ -845,12 +845,8 @@ Patch181: 00181-allow-arbitrary-timeout-in-condition-wait.patch
 #  Patch183: 00183-CVE-2013-4238-hostname-check-bypass-in-SSL-module.patch
 
 # 00184 #
-# Fix for https://bugzilla.redhat.com/show_bug.cgi?id=979696
-# Fixes build of ctypes against libffi with multilib wrapper
-# Python recognizes ffi.h only if it contains "#define LIBFFI_H",
-# but the wrapper doesn't contain that, which makes the build fail
-# We patch this by also accepting "#define ffi_wrapper_h"
-Patch184: 00184-ctypes-should-build-with-libffi-multilib-wrapper.patch
+#  Fedora only
+#  Patch184: 00184-ctypes-should-build-with-libffi-multilib-wrapper.patch
 
 # 00185 #
 # Makes urllib2 honor "no_proxy" enviroment variable for "ftp:" URLs
@@ -981,6 +977,24 @@ Patch227: 00227-accept-none-keyfile-loadcertchain.patch
 # Backport SSLSocket.version function
 # Resolves: rhbz#1259421
 Patch228: 00228-backport-ssl-version.patch
+
+# ================== !PEP466 ===========================
+
+# 00229 #
+# Initialize OpenSSL_add_all_digests in _hashlib
+# Resolves: rhbz#1318319
+Patch229: 00229-fix-hashlib-openssl-init.patch
+
+# 00230 #
+# Adjusted tests to determine the existence or lack of SSLv2 support
+# Resolves: rhbz#1319703
+Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
+
+# 00231 #
+# Add choices for sort option of cProfile for better output message
+# http://bugs.python.org/issue23420
+# Resolves: rhbz#1319655
+Patch231: 00231-cprofile-sort-option.patch
 
 # (New patches go here ^^^)
 #
@@ -1350,7 +1364,6 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 # 00182: upstream as of Python 2.7.7
 # 00183: upstream as of Python 2.7.7
 # 00184: upstream as of Python 2.7.7
-%patch184 -p1
 %patch185 -p1
 %patch187 -p1
 %patch189 -p1
@@ -1372,6 +1385,9 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 %patch224 -p1
 %patch227 -p1
 %patch228 -p1
+%patch229 -p1
+%patch230 -p1
+%patch231 -p1
 
 # This shouldn't be necesarry, but is right now (2.2a3)
 find -name "*~" |xargs rm -f
@@ -1784,11 +1800,11 @@ done
 # library:
 mkdir -p %{buildroot}%{tapsetdir}
 %ifarch ppc64 s390x x86_64 ia64 alpha sparc64
-%global libpython_stp_optimized %{scl_prefix}libpython%{pybasever}-64.stp
-%global libpython_stp_debug     %{scl_prefix}libpython%{pybasever}-debug-64.stp
+%global libpython_stp_optimized libpython%{pybasever}-64.stp
+%global libpython_stp_debug     libpython%{pybasever}-debug-64.stp
 %else
-%global libpython_stp_optimized %{scl_prefix}libpython%{pybasever}-32.stp
-%global libpython_stp_debug     %{scl_prefix}libpython%{pybasever}-debug-32.stp
+%global libpython_stp_optimized libpython%{pybasever}-32.stp
+%global libpython_stp_debug     libpython%{pybasever}-debug-32.stp
 %endif
 
 sed \
@@ -2237,9 +2253,44 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
-* Wed Feb 24 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-6
-- Add missing cert-verification.cfg file
+* Tue Apr 19 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-15
+- Modified 00214-pep466-backport-py3-ssl-changes.patch to apply correctly
+Resolves: rhbz#1111464
+
+* Tue Apr 19 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-14
+- Modified 00224-pep476-add-toggle-for-cert-verify.patch to use certificate verification
+config file from python27 SCL directory.
+Resolves: rhbz#1111464
+
+* Tue Apr 12 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-13
+- Add choices for sort option of cProfile for better output
+Resolves: rhbz#1319655
+
+* Tue Apr 12 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-12
+- Adjusted tests to acknowledge the existense or lack
+of SSLv2 support
+Resolves: rhbz#1319703
+
+* Tue Apr 12 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-11
+- Change HTTPS certificate verification to platform_default
+Resolves: rhbz#1319774
+
+* Wed Mar 09 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-10
+- Initialize OpenSSL_add_all_digests in _hashlib
+Resolves: rhbz#1318319
+
+* Wed Feb 24 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-9
+- Fix _sysconfdir macro to install cert-verification.cfg into the right directory
+
+* Wed Feb 24 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-8
+- Add missing cert-verification.cfg file 
 Resolves: rhbz#1311044
+
+* Thu Feb 18 2016 Robert Kuska <rkuska@redhat.com> - 2.7.8-7
+- Rebuild to generate python abi requires properly
+
+* Wed Feb 17 2016 Robert Kuska <rkuska@redhat.com> - 2.7.8-6
+- Bump for rebuild
 
 * Wed Feb 17 2016 Michal Cyprian <mcyprian@redhat.com> - 2.7.8-5
 - Fix filtering pkgconfig Requires/Provides on rhel7
@@ -2263,19 +2314,12 @@ Resolves: rhbz#1167912
 - Make python-devel depend on scl-utils-build.
 Resolves: rhbz#1170993
 
-* Thu Mar 20 2014 Robert Kuska <rkuska@redhat.com> - 2.7.5-12
-- Add scl prefix to libpython.stp file
-Resolves: rhbz#1077272
+* Tue Dec 03 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.7.5-10
+- Rebuild with proper OpenSSL.
+Resolves: rhbz#1037514
 
-* Mon Nov 25 2013 Robert Kuska <rkuska@redhat.com> - 2.7.5-11
-- Bump release number to avoid build conflict with rhel-7.0
-
-* Mon Nov 25 2013 Robert Kuska <rkuska@redhat.com> - 2.7.5-10
+* Mon Nov 25 2013 Robert Kuska <rkuska@redhat.com> - 2.7.5-9
 - Move unversioned python macros to metapackage
-
-* Mon Oct 21 2013 Robert Kuska <rkuska@redhat.com> - 2.7.5-9
-- Add patch to resolve missing libffi while building
-- Remove BuildRequires: db4-devel, add BuildRequires: libdb-devel
 
 * Mon Sep 30 2013 Bohuslav Kabrda <bkabrda@redhat.com> - 2.7.5-8
 - Make building depending collections on top of python27 easier.

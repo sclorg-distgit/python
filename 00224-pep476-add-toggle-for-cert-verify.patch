@@ -5,7 +5,7 @@ diff -up Python-2.7.5/Lib/ssl.py.cert Python-2.7.5/Lib/ssl.py
  
      return context
  
-+_cert_verification_config = '/etc/python/cert-verification.cfg'
++_cert_verification_config = '/opt/rh/python27/root/etc/python/cert-verification.cfg'
 +
 +def _get_verify_status(protocol):
 +   context_factory = {

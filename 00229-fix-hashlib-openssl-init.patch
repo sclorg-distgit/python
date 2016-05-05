@@ -1,0 +1,12 @@
+diff --git a/Modules/_hashopenssl.c b/Modules/_hashopenssl.c
+index a41c97e..2c8a18f 100644
+--- a/Modules/_hashopenssl.c
++++ b/Modules/_hashopenssl.c
+@@ -984,6 +984,7 @@ init_hashlib(void)
+     SSL_load_error_strings();
+     SSL_library_init();
+     ERR_load_crypto_strings();
++    OpenSSL_add_all_digests();
+ 
+     Py_TYPE(&EVPtype) = &PyType_Type;
+     if (PyType_Ready(&EVPtype) < 0)
