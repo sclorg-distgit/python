@@ -14,7 +14,7 @@
 # 4) python3-setuptools and python3-pip with with_rewheel set to 1
 # 5) python3 with with_rewheel set to 1
 
-%global with_rewheel 0
+%global with_rewheel 1
 
 %{!?scl:%global pkg_name %{name}}
 %{?scl:%scl_package python}
@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 1%{?dist}
+Release: 5%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -678,11 +678,6 @@ Patch196: 00196-test-gdb-match-addr-before-builtin.patch
 # FIXED UPSTREAM
 # Patch197: 00197-fix-CVE-2014-4650.patch
 
-# 00200 #
-# Fix for gettext plural form headers (lines that begin with "#")
-# Note: Backported from scl
-Patch200: 00200-gettext-plural-fix.patch
-
 # 00201 #
 # Fixes memory leak in gdbm module (rhbz#977308)
 # This was upstreamed as a part of bigger patch, but for our purposes
@@ -714,6 +709,12 @@ Patch206: 00206-remove-hf-from-arm-triplet.patch
 # rhbz968928
 # Fix for gettext plural form headers (lines that begin with "#")
 Patch207: 00207-gettext-plural-fix.patch
+
+# 00231 #
+# Add choices for sort option of cProfile for better output message
+# http://bugs.python.org/issue23420
+# Resolves: rhbz#1326287
+Patch231: 00231-cprofile-sort-option.patch
 
 
 Patch300: 00300-change-so-version-scl.patch
@@ -979,7 +980,7 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 #00167: TODO
 #00168: TODO
 #00169: TODO
-#00170: TODO
+%patch170 -p0
 #00171: TODO
 #00172: TODO
 %patch173 -p1
@@ -1009,12 +1010,15 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 # 00195: upstream as of Python 3.4.2
 %patch196 -p1
 # 00197: upstream as of Python 3.4.2
+%patch201 -p0
 # 00202: upstream as of 3.5.0b3
 %patch203 -p1
 # 00204: upstream as of 3.5.0b3
 %patch205 -p1
 %patch206 -p1
 %patch207 -p1
+%patch231 -p1
+
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1
 
@@ -1524,7 +1528,6 @@ CheckPython() {
     --verbose --findleaks \
     -x test_distutils \
     -x test_readline \
-    -x test_socket \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
@@ -1978,6 +1981,20 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Thu Apr 14 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-5
+- Add choices for sort option of cProfile for better output
+Resolves: rhbz#1326287
+
+* Wed Feb 17 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-4
+- Properly apply patches 170&201, remove duplicated Patch200(207)
+
+* Sat Feb 13 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-3
+- Rebuild with rewheel, enable tests
+
+* Sat Feb 13 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-2
+- Fix bytecompile macro name in macros.python3
+- Temporary disable tests for faster rebuild
+
 * Thu Feb 11 2016 Robert Kuska <rkuska@redhat.com> - 3.5.1-1
 - Update to 3.5.1
 
