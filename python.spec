@@ -1528,6 +1528,7 @@ CheckPython() {
     --verbose --findleaks \
     -x test_distutils \
     -x test_readline \
+    -x test_socket \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
