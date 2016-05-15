@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 5%{?dist}
+Release: 6%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -1528,7 +1528,6 @@ CheckPython() {
     --verbose --findleaks \
     -x test_distutils \
     -x test_readline \
-    -x test_socket \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
@@ -1982,6 +1981,10 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Tue Apr 26 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-6
+- Modify cprofile-sort-option.patch for Python 3
+Resolves: rhbz#1326287
+
 * Thu Apr 14 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-5
 - Add choices for sort option of cProfile for better output
 Resolves: rhbz#1326287
