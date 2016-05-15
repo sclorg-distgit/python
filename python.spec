@@ -120,7 +120,7 @@ Summary: An interpreted, interactive, object-oriented programming language
 Name: %{?scl_prefix}%{python}
 # Remember to also rebase python-docs when changing this:
 Version: 2.7.8
-Release: 13%{?dist}
+Release: 14%{?dist}
 License: Python
 Group: Development/Languages
 %{?scl:Requires: %{scl}-runtime}
@@ -1000,6 +1000,12 @@ Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
 # Resolves: rhbz#1319655
 Patch231: 00231-cprofile-sort-option.patch
 
+# 00231 #
+# Fix for iteration over files vith very long lines
+# http://bugs.python.org/issue22526
+# Resolves: rhbz#1329141
+Patch232: 00232-use-Py_ssize_t-for-file-offset-and-length-computations-in-iteration.patch
+
 
 # (New patches go here ^^^)
 #
@@ -1394,6 +1400,7 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 %patch229 -p1
 %patch230 -p1
 %patch231 -p1
+%patch232 -p1
 
 # This shouldn't be necesarry, but is right now (2.2a3)
 find -name "*~" |xargs rm -f
@@ -2259,6 +2266,10 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Thu Apr 28 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-14
+- Fix iteration over files with very long lines
+Resolves: rhbz#1329141
+
 * Tue Apr 19 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-13
 - Modified 00214-pep466-backport-py3-ssl-changes.patch to apply correctly
 Resolves: rhbz#1111464

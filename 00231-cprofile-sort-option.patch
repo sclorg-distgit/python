@@ -27,7 +27,7 @@ index b2efd04..02acd4e 100755
          help="Sort order when printing to stdout, based on pstats.Stats class",
 -        default=-1)
 +        default=-1,
-+        choices=pstats.Stats.sort_arg_dict_default.keys())
++        choices=list(pstats.Stats.sort_arg_dict_default.keys()))
  
      if not sys.argv[1:]:
          parser.print_usage()
