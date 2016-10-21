@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 8%{?dist}
+Release: 10%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -2001,6 +2001,10 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-10
+- Bump release number for rebuild
+Resolves: rhbz#1359174
+
 * Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-8
 - Fix for CVE-2016-1000110 HTTPoxy attack
 Resolves: rhbz#1359174
