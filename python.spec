@@ -2,7 +2,7 @@
 # Conditionals and other variables controlling the build
 # ======================================================
 
-# NOTES ON BOOTSTRAPING PYTHON 3.4:
+# NOTES ON BOOTSTRAPING PYTHON 3.5:
 #
 # Due to dependency cycle between Python, pip, setuptools and
 # wheel caused by the rewheel patch, one has to build in the
@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 6%{?dist}
+Release: 8%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -716,8 +716,25 @@ Patch207: 00207-gettext-plural-fix.patch
 # Resolves: rhbz#1326287
 Patch231: 00231-cprofile-sort-option.patch
 
+# 00237 #
+# CVE-2016-0772 python: smtplib StartTLS stripping attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303647
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/d590114c2394
+# Raise an error when STARTTLS fails
+# Resolves: rhbz#1346361
+Patch237: 00237-CVE-2016-0772-smtplib.patch
+
+# 00242 #
+# HTTPoxy attack (CVE-2016-1000110)
+# https://httpoxy.org/
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Based on a patch by Rémi Rampin
+# Resolves: rhbz#1359174
+Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+
 
 Patch300: 00300-change-so-version-scl.patch
+
 
 # (New patches go here ^^^)
 #
@@ -1018,6 +1035,8 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 %patch206 -p1
 %patch207 -p1
 %patch231 -p1
+%patch237 -p1
+%patch242 -p1
 
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1
@@ -1982,6 +2001,15 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-8
+- Fix for CVE-2016-1000110 HTTPoxy attack
+Resolves: rhbz#1359174
+
+* Tue Jun 21 2016 Tomas Orsava <torsava@redhat.com> - 3.5.1-7
+- Fix for CVE-2016-0772 python: smtplib StartTLS stripping attack (rhbz#1303647)
+  Raise an error when STARTTLS fails (upstream patch)
+Resolves: rhbz#1346361
+
 * Tue Apr 26 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-6
 - Modify cprofile-sort-option.patch for Python 3
 Resolves: rhbz#1326287
