@@ -14,7 +14,7 @@
 # 4) python3-setuptools and python3-pip with with_rewheel set to 1
 # 5) python3 with with_rewheel set to 1
 
-%global with_rewheel 0
+%global with_rewheel 1
 
 %{!?scl:%global pkg_name %{name}}
 %{?scl:%scl_package python}
@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 8%{?dist}
+Release: 9%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -1994,6 +1994,9 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Mon Jul 25 2016 Tomas Orsava <torsava@redhat.com> - 3.5.1-9
+- Bootstrapping procedure, step 2/2: with_rewheel 1
+
 * Mon Jul 25 2016 Tomas Orsava <torsava@redhat.com> - 3.5.1-8
 - Modified dependencies to work with RHEL 6
 - Bootstrapping procedure, step 1/2: with_rewheel 0
