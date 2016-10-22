@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 9%{?dist}
+Release: 11%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -725,6 +725,14 @@ Patch231: 00231-cprofile-sort-option.patch
 # Resolves: rhbz#1346361
 Patch237: 00237-CVE-2016-0772-smtplib.patch
 
+# 00242 #
+# HTTPoxy attack (CVE-2016-1000110)
+# https://httpoxy.org/
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Based on a patch by Rémi Rampin
+# Resolves: rhbz#1359174
+Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+
 
 Patch300: 00300-change-so-version-scl.patch
 
@@ -1030,6 +1038,7 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 %patch207 -p1
 %patch231 -p1
 %patch237 -p1
+%patch242 -p1
 
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1
@@ -1384,16 +1393,11 @@ iconv -f iso8859-1 -t utf-8 %{buildroot}/%{pylibdir}/Demo/rpc/README > README.co
 
 # Do bytecompilation with the newly installed interpreter.
 # This is similar to the script in macros.pybytecompile
-# compile *.pyo
-find %{buildroot} -type f -a -name "*.py" -print0 | \
-    LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
-    PYTHONPATH="%{buildroot}%{_libdir}/python%{pybasever} %{buildroot}%{_libdir}/python%{pybasever}/site-packages" \
-    xargs -0 %{buildroot}%{_bindir}/python%{pybasever} -O -c 'import py_compile, sys; [py_compile.compile(f, dfile=f.partition("%{buildroot}")[2]) for f in sys.argv[1:]]' || :
 # compile *.pyc
 find %{buildroot} -type f -a -name "*.py" -print0 | \
     LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
     PYTHONPATH="%{buildroot}%{_libdir}/python%{pybasever} %{buildroot}%{_libdir}/python%{pybasever}/site-packages" \
-    xargs -0 %{buildroot}%{_bindir}/python%{pybasever} -O -c 'import py_compile, sys; [py_compile.compile(f, dfile=f.partition("%{buildroot}")[2], optimize=0) for f in sys.argv[1:]]' || :
+    xargs -0 %{buildroot}%{_bindir}/python%{pybasever} -O -c 'import py_compile, sys; [py_compile.compile(f, dfile=f.partition("%{buildroot}")[2], optimize=opt) for opt in range(3) for f in sys.argv[1:]]' || :
 
 # Fixup permissions for shared libraries from non-standard 555 to standard 755:
 find %{buildroot} \
@@ -1994,6 +1998,18 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Wed Sep 14 2016 Tomas Orsava <torsava@redhat.com> - 3.5.1-11
+- Updated .pyc 'bytecompilation with the newly installed interpreter' to also
+  recompile optimized .pyc files
+- Removed .pyo 'bytecompilation with the newly installed interpreter', as .pyo
+  files are no more
+- Updated %py_byte_compile macro
+Resolves rhbz#1374667
+
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.5.1-10
+- Fix for CVE-2016-1000110 HTTPoxy attack
+Resolves: rhbz#1359174
+
 * Mon Jul 25 2016 Tomas Orsava <torsava@redhat.com> - 3.5.1-9
 - Bootstrapping procedure, step 2/2: with_rewheel 1
 
