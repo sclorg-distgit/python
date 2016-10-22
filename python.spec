@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.2
-Release: 9%{?dist}
+Release: 14%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -718,6 +718,39 @@ Patch202:00202-enable-cert-verify-by-default.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=1203236
 Patch203: 00203-tempfile-shouldnt-close-if-used-as-iterator.patch
 
+# 00237 #
+# CVE-2016-0772 python: smtplib StartTLS stripping attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303647
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/d590114c2394
+# Raise an error when STARTTLS fails
+# Resolves: rhbz#1346360
+Patch237: 00237-CVE-2016-0772-smtplib.patch
+
+# 00238 #
+# CVE-2016-5699 python: http protocol steam injection attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303699
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/bf3e1c9b80e9
+# Disabled HTTP header injections in http.client
+# Resolves: rhbz#1346360
+Patch238: 00238-CVE-2016-5699-http-client.patch
+
+# 00239 #
+# Python upstream issue #24985: https://bugs.python.org/issue24985
+#   python SSL test fails due to minimum key size being increased in OpenSSL
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/1ad7c0253abe
+# Replace 512 bit dh key with a 1024 bit one
+# Resolves: rhbz#1356506
+Patch239: 00239-Replace-512-bit-dh-key-with-a-1024-bit-one.patch
+
+# 00242 #
+# HTTPoxy attack (CVE-2016-1000110)
+# https://httpoxy.org/
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Based on a patch by Rémi Rampin
+# Resolves: rhbz#1359171
+Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+
+
 Patch300: 00300-change-so-version-scl.patch
 
 
@@ -1008,6 +1041,11 @@ done
 %patch201 -p1
 %patch202 -p1
 %patch203 -p1
+%patch237 -p1
+%patch238 -p1
+%patch239 -p1
+%patch242 -p1
+
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1 
 
@@ -1486,9 +1524,6 @@ echo '[ $? -eq 127 ] && echo "Could not find python%{LDVERSION_optimized}-`uname
 # ======================================================
 
 %check
-# tests not passing, disabling for now
-exit 0
-
 # first of all, check timestamps of bytecode files
 find %{buildroot} -type f -a -name "*.py" -print0 | \
     LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
@@ -1528,6 +1563,7 @@ CheckPython() {
     --verbose --findleaks \
     -x test_distutils \
     -x test_readline \
+    -x test_socket \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
@@ -1983,6 +2019,31 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.4.2-14
+- Fix for CVE-2016-1000110 HTTPoxy attack
+Resolves: rhbz#1359171
+
+* Fri Jul 15 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-13
+- Updated the rhbz number for a patch 239
+- Fixed a wrong release number in the previous changelog entry
+Resolves: rhbz#1356506
+
+* Fri Jul 08 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-12
+- Fix for CVE-2016-5699 python: http protocol steam injection attack (rhbz#1303699)
+  Disabled HTTP header injections in http.client (upstream patch)
+Resolves: rhbz#1346360
+
+* Wed Jun 29 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-11
+- Replace 512 bit dh key with a 1024 bit one (upstream change)
+- Python upstream issue #24985: https://bugs.python.org/issue24985
+  python SSL test fails due to minimum key size being increased in OpenSSL
+Resolves: rhbz#1356506
+
+* Tue Jun 21 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-10
+- Fix for CVE-2016-0772 python: smtplib StartTLS stripping attack (rhbz#1303647)
+  Raise an error when STARTTLS fails (upstream patch)
+Resolves: rhbz#1346360
+
 * Tue Mar 24 2015 Slavek Kabrda <bkabrda@redhat.com> - 3.4.2-9
 - Build debug build with -O1 to improve GDB backtraces
 Resolves: rhbz#1204169
