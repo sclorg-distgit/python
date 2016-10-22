@@ -131,7 +131,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.2
-Release: 12%{?dist}
+Release: 16%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -643,6 +643,30 @@ Patch188: 00188-dont-raise-from-py_compile.patch
 # call to C listxattr() fails with ERANGE.
 Patch189: 00189-fix-leak-in-listxattr.patch
 
+# 00237 #
+# CVE-2016-0772 python: smtplib StartTLS stripping attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303647
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/d590114c2394
+# Raise an error when STARTTLS fails
+# Resolves: rhbz#1346359
+Patch237: 00237-CVE-2016-0772-smtplib.patch
+
+# 00238 #
+# CVE-2016-5699 python: http protocol steam injection attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303699
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/bf3e1c9b80e9
+# Disabled HTTP header injections in http.client
+# Resolves: rhbz#1346359
+Patch238: 00238-CVE-2016-5699-http-client.patch
+
+# 00242 #
+# HTTPoxy attack (CVE-2016-1000110)
+# https://httpoxy.org/
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Based on a patch by Rémi Rampin
+# Resolves: rhbz#1359169
+Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+
 
 # (New patches go here ^^^)
 #
@@ -914,6 +938,9 @@ done
 %patch187 -p1
 %patch188 -p1
 %patch189 -p1
+%patch237 -p1
+%patch238 -p1
+%patch242 -p1
 
 # Currently (2010-01-15), http://docs.python.org/library is for 2.6, and there
 # are many differences between 2.6 and the Python 3 library.
@@ -1814,6 +1841,29 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.3.2-16
+- Fix for CVE-2016-1000110 HTTPoxy attack
+Resolves: rhbz#1359169
+
+* Fri Jul 08 2016 Tomas Orsava <torsava@redhat.com> - 3.3.2-15
+- Addendum for the Fix for CVE-2016-5699 (rhbz#1303699)
+  Python 3.3 does not yet have functions fullmatch and subTest,
+  the patch was rewritten accordingly
+Resolves: rhbz#1346359
+
+* Fri Jul 01 2016 Tomas Orsava <torsava@redhat.com> - 3.3.2-14
+- Addendum for the Fix for CVE-2016-0772 (rhbz#1303647)
+  In this version of Python, smtplib has 644 permissons, not 755,
+  thus I modified the patch to expect this and not adjust the permissons.
+Resolves: rhbz#1346359
+
+* Tue Jun 21 2016 Tomas Orsava <torsava@redhat.com> - 3.3.2-13
+- Fix for CVE-2016-0772 python: smtplib StartTLS stripping attack (rhbz#1303647)
+  Raise an error when STARTTLS fails (upstream patch)
+- Fix for CVE-2016-5699 python: http protocol steam injection attack (rhbz#1303699)
+  Disabled HTTP header injections in http.client (upstream patch)
+Resolves: rhbz#1346359
+
 * Thu Mar 20 2014 Matej Stuchlik <mstuchli@redhat.com> - 3.3.2-12
 - Create a "python" man page
 Resolves: rhbz#1072522
