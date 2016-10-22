@@ -1,0 +1,65 @@
+From fbed024f6a7fb631065fdc34bd5f7de8a024661e Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Wed, 29 Jun 2016 17:41:46 +0200
+Subject: [PATCH] Replace 512 bit dh key with a 1024 bit one
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Python upstream issue 24985: https://bugs.python.org/issue24985
+- python SSL test fails due to minimum key size being increased in OpenSSL
+
+Based on an upstream change by Cédric Krier:
+- https://hg.python.org/cpython/rev/1ad7c0253abe
+---
+ Lib/test/dh1024.pem  | 7 +++++++
+ Lib/test/dh512.pem   | 9 ---------
+ Lib/test/test_ssl.py | 2 +-
+ 3 files changed, 8 insertions(+), 10 deletions(-)
+ create mode 100644 Lib/test/dh1024.pem
+ delete mode 100644 Lib/test/dh512.pem
+
+diff --git a/Lib/test/dh1024.pem b/Lib/test/dh1024.pem
+new file mode 100644
+index 0000000..a391176
+--- /dev/null
++++ b/Lib/test/dh1024.pem
+@@ -0,0 +1,7 @@
++-----BEGIN DH PARAMETERS-----
++MIGHAoGBAIbzw1s9CT8SV5yv6L7esdAdZYZjPi3qWFs61CYTFFQnf2s/d09NYaJt
++rrvJhIzWavqnue71qXCf83/J3nz3FEwUU/L0mGyheVbsSHiI64wUo3u50wK5Igo0
++RNs/LD0irs7m0icZ//hijafTU+JOBiuA8zMI+oZfU7BGuc9XrUprAgEC
++-----END DH PARAMETERS-----
++
++Generated with: openssl dhparam -out dh1024.pem  1024
+diff --git a/Lib/test/dh512.pem b/Lib/test/dh512.pem
+deleted file mode 100644
+index 200d16c..0000000
+--- a/Lib/test/dh512.pem
++++ /dev/null
+@@ -1,9 +0,0 @@
+------BEGIN DH PARAMETERS-----
+-MEYCQQD1Kv884bEpQBgRjXyEpwpy1obEAxnIByl6ypUM2Zafq9AKUJsCRtMIPWak
+-XUGfnHy9iUsiGSa6q6Jew1XpKgVfAgEC
+------END DH PARAMETERS-----
+-
+-These are the 512 bit DH parameters from "Assigned Number for SKIP Protocols"
+-(http://www.skip-vpn.org/spec/numbers.html).
+-See there for how they were generated.
+-Note that g is not a generator, but this is not a problem since p is a safe prime.
+diff --git a/Lib/test/test_ssl.py b/Lib/test/test_ssl.py
+index 7febab3..1192708 100644
+--- a/Lib/test/test_ssl.py
++++ b/Lib/test/test_ssl.py
+@@ -65,7 +65,7 @@ BADKEY = data_file("badkey.pem")
+ NOKIACERT = data_file("nokia.pem")
+ NULLBYTECERT = data_file("nullbytecert.pem")
+ 
+-DHFILE = data_file("dh512.pem")
++DHFILE = data_file("dh1024.pem")
+ BYTES_DHFILE = os.fsencode(DHFILE)
+ 
+ 
+-- 
+2.9.0
+

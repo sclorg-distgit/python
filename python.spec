@@ -146,7 +146,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.2
-Release: 9%{?dist}
+Release: 13%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -162,8 +162,7 @@ BuildRequires: autoconf
 BuildRequires: bluez-libs-devel
 BuildRequires: bzip2
 BuildRequires: bzip2-devel
-# probably not required and also missing
-#BuildRequires: libdb4-devel >= 4.7
+BuildRequires: libdb-devel >= 4.7
 # expat 2.1.0 added the symbol XML_SetHashSalt without bumping SONAME.  We use
 # it (in pyexpat) in order to enable the fix in Python-3.2.3 for CVE-2012-0876:
 # SCL: rhel has older but fixed version, no need to depend on 2.1.0
@@ -719,6 +718,39 @@ Patch202:00202-enable-cert-verify-by-default.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=1203236
 Patch203: 00203-tempfile-shouldnt-close-if-used-as-iterator.patch
 
+# 00237 #
+# CVE-2016-0772 python: smtplib StartTLS stripping attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303647
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/d590114c2394
+# Raise an error when STARTTLS fails
+# Resolves: rhbz#1346360
+Patch237: 00237-CVE-2016-0772-smtplib.patch
+
+# 00238 #
+# CVE-2016-5699 python: http protocol steam injection attack
+#   https://bugzilla.redhat.com/show_bug.cgi?id=1303699
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/bf3e1c9b80e9
+# Disabled HTTP header injections in http.client
+# Resolves: rhbz#1346360
+Patch238: 00238-CVE-2016-5699-http-client.patch
+
+# 00239 #
+# Python upstream issue #24985: https://bugs.python.org/issue24985
+#   python SSL test fails due to minimum key size being increased in OpenSSL
+#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/1ad7c0253abe
+# Replace 512 bit dh key with a 1024 bit one
+# Resolves: rhbz#1356506
+Patch239: 00239-Replace-512-bit-dh-key-with-a-1024-bit-one.patch
+
+# 00242 #
+# HTTPoxy attack (CVE-2016-1000110)
+# https://httpoxy.org/
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Based on a patch by Rémi Rampin
+# Resolves: rhbz#1359171
+Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+
+
 Patch300: 00300-change-so-version-scl.patch
 
 
@@ -1009,6 +1041,11 @@ done
 %patch201 -p1
 %patch202 -p1
 %patch203 -p1
+%patch237 -p1
+%patch238 -p1
+%patch239 -p1
+%patch242 -p1
+
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1 
 
@@ -1488,7 +1525,6 @@ echo '[ $? -eq 127 ] && echo "Could not find python%{LDVERSION_optimized}-`uname
 
 %check
 # first of all, check timestamps of bytecode files
-exit 0
 find %{buildroot} -type f -a -name "*.py" -print0 | \
     LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
     PYTHONPATH="%{buildroot}%{_libdir}/python%{pybasever} %{buildroot}%{_libdir}/python%{pybasever}/    site-packages" \
@@ -1527,6 +1563,7 @@ CheckPython() {
     --verbose --findleaks \
     -x test_distutils \
     -x test_readline \
+    -x test_socket \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
@@ -1982,6 +2019,26 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Fri Aug 05 2016 Charalampos Stratakis <cstratak@redhat.com> - 3.4.2-13
+- Fix for CVE-2016-1000110 HTTPoxy attack
+Resolves: rhbz#1359171
+
+* Thu Jul 14 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-12
+- Replace 512 bit dh key with a 1024 bit one (upstream change)
+- Python upstream issue #24985: https://bugs.python.org/issue24985
+  python SSL test fails due to minimum key size being increased in OpenSSL
+Resolves: rhbz#1356506
+
+* Fri Jul 08 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-11
+- Fix for CVE-2016-5699 python: http protocol steam injection attack (rhbz#1303699)
+  Disabled HTTP header injections in http.client (upstream patch)
+Resolves: rhbz#1346360
+
+* Tue Jun 21 2016 Tomas Orsava <torsava@redhat.com> - 3.4.2-10
+- Fix for CVE-2016-0772 python: smtplib StartTLS stripping attack (rhbz#1303647)
+  Raise an error when STARTTLS fails (upstream patch)
+Resolves: rhbz#1346360
+
 * Tue Mar 24 2015 Slavek Kabrda <bkabrda@redhat.com> - 3.4.2-9
 - Build debug build with -O1 to improve GDB backtraces
 Resolves: rhbz#1204169
