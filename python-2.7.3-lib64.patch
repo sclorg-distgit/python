@@ -1,6 +1,24 @@
-diff -up Python-2.7.6/Lib/distutils/command/install.py.lib64 Python-2.7.6/Lib/distutils/command/install.py
---- Python-2.7.6/Lib/distutils/command/install.py.lib64	2013-11-10 08:36:40.000000000 +0100
-+++ Python-2.7.6/Lib/distutils/command/install.py	2014-01-29 13:51:19.779590378 +0100
+From 0708de697e2e905387e969134fb4d832c769d9d8 Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Tue, 10 Jan 2017 11:37:03 +0100
+Subject: [PATCH] Fixup various paths throughout the build and in distutils
+ from "lib" to "lib64"
+
+---
+ Lib/distutils/command/install.py |  4 ++--
+ Lib/distutils/sysconfig.py       |  6 +++++-
+ Lib/site.py                      |  4 ++++
+ Lib/test/test_site.py            | 11 +++++++----
+ Makefile.pre.in                  |  2 +-
+ Modules/Setup.dist               |  4 ++--
+ Modules/getpath.c                |  6 +++---
+ setup.py                         | 10 +++++-----
+ 8 files changed, 29 insertions(+), 18 deletions(-)
+
+diff --git a/Lib/distutils/command/install.py b/Lib/distutils/command/install.py
+index b9f1c6c..7b23714 100644
+--- a/Lib/distutils/command/install.py
++++ b/Lib/distutils/command/install.py
 @@ -42,14 +42,14 @@ else:
  INSTALL_SCHEMES = {
      'unix_prefix': {
@@ -18,10 +36,11 @@ diff -up Python-2.7.6/Lib/distutils/command/install.py.lib64 Python-2.7.6/Lib/di
          'headers': '$base/include/python/$dist_name',
          'scripts': '$base/bin',
          'data'   : '$base',
-diff -up Python-2.7.6/Lib/distutils/sysconfig.py.lib64 Python-2.7.6/Lib/distutils/sysconfig.py
---- Python-2.7.6/Lib/distutils/sysconfig.py.lib64	2013-11-10 08:36:40.000000000 +0100
-+++ Python-2.7.6/Lib/distutils/sysconfig.py	2014-01-29 13:51:19.779590378 +0100
-@@ -119,8 +119,12 @@ def get_python_lib(plat_specific=0, stan
+diff --git a/Lib/distutils/sysconfig.py b/Lib/distutils/sysconfig.py
+index 068d1ba..3e7f077 100644
+--- a/Lib/distutils/sysconfig.py
++++ b/Lib/distutils/sysconfig.py
+@@ -119,8 +119,12 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
          prefix = plat_specific and EXEC_PREFIX or PREFIX
  
      if os.name == "posix":
@@ -35,9 +54,10 @@ diff -up Python-2.7.6/Lib/distutils/sysconfig.py.lib64 Python-2.7.6/Lib/distutil
          if standard_lib:
              return libpython
          else:
-diff -up Python-2.7.6/Lib/site.py.lib64 Python-2.7.6/Lib/site.py
---- Python-2.7.6/Lib/site.py.lib64	2013-11-10 08:36:40.000000000 +0100
-+++ Python-2.7.6/Lib/site.py	2014-01-29 13:51:19.779590378 +0100
+diff --git a/Lib/site.py b/Lib/site.py
+index c360802..868b7cb 100644
+--- a/Lib/site.py
++++ b/Lib/site.py
 @@ -288,12 +288,16 @@ def getsitepackages():
          if sys.platform in ('os2emx', 'riscos'):
              sitepackages.append(os.path.join(prefix, "Lib", "site-packages"))
@@ -53,15 +73,16 @@ diff -up Python-2.7.6/Lib/site.py.lib64 Python-2.7.6/Lib/site.py
              sitepackages.append(prefix)
 +            sitepackages.append(os.path.join(prefix, "lib64", "site-packages"))
              sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
-         if sys.platform == "darwin":
-             # for framework builds *only* we add the standard Apple
-diff -up Python-2.7.6/Lib/test/test_site.py.lib64 Python-2.7.6/Lib/test/test_site.py
---- Python-2.7.6/Lib/test/test_site.py.lib64	2013-11-10 08:36:40.000000000 +0100
-+++ Python-2.7.6/Lib/test/test_site.py	2014-01-29 13:51:19.780590315 +0100
-@@ -241,17 +241,20 @@ class HelperFunctionsTests(unittest.Test
-             self.assertEqual(dirs[2], wanted)
+     return sitepackages
+ 
+diff --git a/Lib/test/test_site.py b/Lib/test/test_site.py
+index d9a9324..64dd8e9 100644
+--- a/Lib/test/test_site.py
++++ b/Lib/test/test_site.py
+@@ -235,17 +235,20 @@ class HelperFunctionsTests(unittest.TestCase):
+             self.assertEqual(dirs[0], wanted)
          elif os.sep == '/':
-             # OS X non-framwework builds, Linux, FreeBSD, etc
+             # OS X, Linux, FreeBSD, etc
 -            self.assertEqual(len(dirs), 2)
 -            wanted = os.path.join('xoxo', 'lib', 'python' + sys.version[:3],
 +            self.assertEqual(len(dirs), 3)
@@ -83,10 +104,11 @@ diff -up Python-2.7.6/Lib/test/test_site.py.lib64 Python-2.7.6/Lib/test/test_sit
              self.assertEqual(dirs[1], wanted)
  
  class PthFile(object):
-diff -up Python-2.7.6/Makefile.pre.in.lib64 Python-2.7.6/Makefile.pre.in
---- Python-2.7.6/Makefile.pre.in.lib64	2014-01-29 13:51:19.773590757 +0100
-+++ Python-2.7.6/Makefile.pre.in	2014-01-29 13:51:19.780590315 +0100
-@@ -106,7 +106,7 @@ LIBDIR=		@libdir@
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index c0ad978..997a2fc 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -111,7 +111,7 @@ LIBDIR=		@libdir@
  MANDIR=		@mandir@
  INCLUDEDIR=	@includedir@
  CONFINCLUDEDIR=	$(exec_prefix)/include
@@ -95,9 +117,10 @@ diff -up Python-2.7.6/Makefile.pre.in.lib64 Python-2.7.6/Makefile.pre.in
  
  # Detailed destination directories
  BINLIBDEST=	$(LIBDIR)/python$(VERSION)
-diff -up Python-2.7.6/Modules/Setup.dist.lib64 Python-2.7.6/Modules/Setup.dist
---- Python-2.7.6/Modules/Setup.dist.lib64	2014-01-29 13:51:19.768591073 +0100
-+++ Python-2.7.6/Modules/Setup.dist	2014-01-29 13:51:19.781590252 +0100
+diff --git a/Modules/Setup.dist b/Modules/Setup.dist
+index fbfa1c1..138fb33 100644
+--- a/Modules/Setup.dist
++++ b/Modules/Setup.dist
 @@ -416,7 +416,7 @@ gdbm gdbmmodule.c -lgdbm
  # Edit the variables DB and DBLIBVERto point to the db top directory
  # and the subdirectory of PORT where you built it.
@@ -116,21 +139,11 @@ diff -up Python-2.7.6/Modules/Setup.dist.lib64 Python-2.7.6/Modules/Setup.dist
  
  # Interface to the Expat XML parser
  #
-diff -up Python-2.7.6/Modules/getpath.c.lib64 Python-2.7.6/Modules/getpath.c
---- Python-2.7.6/Modules/getpath.c.lib64	2013-11-10 08:36:41.000000000 +0100
-+++ Python-2.7.6/Modules/getpath.c	2014-01-29 13:51:19.781590252 +0100
-@@ -117,8 +117,8 @@
- #endif
- 
- #ifndef PYTHONPATH
--#define PYTHONPATH PREFIX "/lib/python" VERSION ":" \
--              EXEC_PREFIX "/lib/python" VERSION "/lib-dynload"
-+#define PYTHONPATH PREFIX "/lib64/python" VERSION ":" \
-+              EXEC_PREFIX "/lib64/python" VERSION "/lib-dynload"
- #endif
- 
- #ifndef LANDMARK
-@@ -129,7 +129,7 @@ static char prefix[MAXPATHLEN+1];
+diff --git a/Modules/getpath.c b/Modules/getpath.c
+index fd33a01..5b0eae6 100644
+--- a/Modules/getpath.c
++++ b/Modules/getpath.c
+@@ -108,7 +108,7 @@ static char prefix[MAXPATHLEN+1];
  static char exec_prefix[MAXPATHLEN+1];
  static char progpath[MAXPATHLEN+1];
  static char *module_search_path = NULL;
@@ -139,7 +152,7 @@ diff -up Python-2.7.6/Modules/getpath.c.lib64 Python-2.7.6/Modules/getpath.c
  
  static void
  reduce(char *dir)
-@@ -543,7 +543,7 @@ calculate_path(void)
+@@ -538,7 +538,7 @@ calculate_path(void)
      }
      else
          strncpy(zip_path, PREFIX, MAXPATHLEN);
@@ -148,7 +161,7 @@ diff -up Python-2.7.6/Modules/getpath.c.lib64 Python-2.7.6/Modules/getpath.c
      bufsz = strlen(zip_path);   /* Replace "00" with version */
      zip_path[bufsz - 6] = VERSION[0];
      zip_path[bufsz - 5] = VERSION[2];
-@@ -553,7 +553,7 @@ calculate_path(void)
+@@ -548,7 +548,7 @@ calculate_path(void)
              fprintf(stderr,
                  "Could not find platform dependent libraries <exec_prefix>\n");
          strncpy(exec_prefix, EXEC_PREFIX, MAXPATHLEN);
@@ -157,10 +170,11 @@ diff -up Python-2.7.6/Modules/getpath.c.lib64 Python-2.7.6/Modules/getpath.c
      }
      /* If we found EXEC_PREFIX do *not* reduce it!  (Yet.) */
  
-diff -up Python-2.7.6/setup.py.lib64 Python-2.7.6/setup.py
---- Python-2.7.6/setup.py.lib64	2013-11-10 08:36:41.000000000 +0100
-+++ Python-2.7.6/setup.py	2014-01-29 13:56:02.713716528 +0100
-@@ -438,7 +438,7 @@ class PyBuildExt(build_ext):
+diff --git a/setup.py b/setup.py
+index 75d63b7..9fe7634 100644
+--- a/setup.py
++++ b/setup.py
+@@ -456,7 +456,7 @@ class PyBuildExt(build_ext):
      def detect_modules(self):
          # Ensure that /usr/local is always used
          if not cross_compiling:
@@ -169,7 +183,7 @@ diff -up Python-2.7.6/setup.py.lib64 Python-2.7.6/setup.py
              add_dir_to_list(self.compiler.include_dirs, '/usr/local/include')
          if cross_compiling:
              self.add_gcc_paths()
-@@ -758,11 +758,11 @@ class PyBuildExt(build_ext):
+@@ -782,11 +782,11 @@ class PyBuildExt(build_ext):
              elif curses_library:
                  readline_libs.append(curses_library)
              elif self.compiler.find_library_file(lib_dirs +
@@ -183,7 +197,7 @@ diff -up Python-2.7.6/setup.py.lib64 Python-2.7.6/setup.py
                                     extra_link_args=readline_extra_link_args,
                                     libraries=readline_libs) )
          else:
-@@ -797,8 +797,8 @@ class PyBuildExt(build_ext):
+@@ -821,8 +821,8 @@ class PyBuildExt(build_ext):
              if krb5_h:
                  ssl_incs += krb5_h
          ssl_libs = find_library_file(self.compiler, 'ssl',lib_dirs,
@@ -194,3 +208,6 @@ diff -up Python-2.7.6/setup.py.lib64 Python-2.7.6/setup.py
                                       ] )
  
          if (ssl_incs is not None and
+-- 
+2.11.0
+

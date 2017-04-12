@@ -1,14 +1,33 @@
-diff -up Python-2.7rc1/Lib/ctypes/util.py.binutils-no-dep Python-2.7rc1/Lib/ctypes/util.py
---- Python-2.7rc1/Lib/ctypes/util.py.binutils-no-dep	2010-03-15 09:42:23.000000000 -0400
-+++ Python-2.7rc1/Lib/ctypes/util.py	2010-06-06 05:03:02.155975210 -0400
-@@ -140,7 +140,9 @@ elif os.name == "posix":
-             dump = f.read()
-             rv = f.close()
-             if rv == 10:
--                raise OSError, 'objdump command not found'
+From f188693ef57719c02a9d6927272737fbfb633e4e Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Tue, 10 Jan 2017 15:43:51 +0100
+Subject: [PATCH] Avoid using objdump to apparently minimize space requirements
+
+---
+ Lib/ctypes/util.py | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Lib/ctypes/util.py b/Lib/ctypes/util.py
+index ab10ec5..923d1b7 100644
+--- a/Lib/ctypes/util.py
++++ b/Lib/ctypes/util.py
+@@ -140,11 +140,15 @@ elif os.name == "posix":
+             # assuming GNU binutils / ELF
+             if not f:
+                 return None
+-            cmd = 'if ! type objdump >/dev/null 2>&1; then exit; fi;' \
++            cmd = 'if ! type objdump >/dev/null 2>&1; then exit 10; fi;' \
+                   'objdump -p -j .dynamic 2>/dev/null "$1"'
+             proc = subprocess.Popen((cmd, '_get_soname', f), shell=True,
+                                     stdout=subprocess.PIPE)
+             [dump, _] = proc.communicate()
++            if proc.returncode == 10:
 +                return os.path.basename(f) #  This is good for GLibc, I think,
 +                                           # and a dep on binutils is big (for
 +                                           # live CDs).
-             f = os.popen(cmd)
-             try:
-                 data = f.read()
+             res = re.search(br'\sSONAME\s+([^\s]+)', dump)
+             if not res:
+                 return None
+-- 
+2.11.0
+

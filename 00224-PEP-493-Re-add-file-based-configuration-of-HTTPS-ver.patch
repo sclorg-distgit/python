@@ -1,0 +1,57 @@
+From 9051b49f652b3d98a3cb1868c8da8281710ddcab Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Tue, 7 Feb 2017 16:28:29 +0100
+Subject: [PATCH] PEP 493: Re-add file-based configuration of HTTPS
+ verification
+
+---
+ Lib/ssl.py | 28 ++++++++++++++++++++++++----
+ 1 file changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/Lib/ssl.py b/Lib/ssl.py
+index f28c863..ad5a93a 100644
+--- a/Lib/ssl.py
++++ b/Lib/ssl.py
+@@ -499,15 +499,35 @@ def _create_unverified_context(protocol=PROTOCOL_TLS, cert_reqs=None,
+ # Backwards compatibility alias, even though it's not a public name.
+ _create_stdlib_context = _create_unverified_context
+ 
+-# PEP 493: Verify HTTPS by default, but allow envvar to override that
++# PEP 493: Verify HTTPS by default, but allow envvar or file based
++# configuration to override that
+ _https_verify_envvar = 'PYTHONHTTPSVERIFY'
++_cert_verification_config = '/opt/rh/python27/root/etc/python/cert-verification.cfg'
+ 
+ def _get_https_context_factory():
++    # Check for an environmental override of the default behaviour
+     if not sys.flags.ignore_environment:
+         config_setting = os.environ.get(_https_verify_envvar)
+-        if config_setting == '0':
+-            return _create_unverified_context
+-    return create_default_context
++        if config_setting is not None:
++            if config_setting == '0':
++                return _create_unverified_context
++            return create_default_context
++
++    # Check for a system-wide override of the default behaviour
++    context_factories = {
++        'enable': create_default_context,
++        'disable': _create_unverified_context,
++        'platform_default': create_default_context,
++    }
++    import ConfigParser
++    config = ConfigParser.RawConfigParser()
++    config.read(_cert_verification_config)
++    try:
++        verify_mode = config.get('https', 'verify')
++    except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
++        verify_mode = 'platform_default'
++    default_factory = context_factories.get('platform_default')
++    return context_factories.get(verify_mode, default_factory)
+ 
+ _create_default_https_context = _get_https_context_factory()
+ 
+-- 
+2.11.0
+

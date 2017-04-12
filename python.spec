@@ -8,6 +8,8 @@
 # Conditionals and other variables controlling the build
 # ======================================================
 
+%global with_rewheel 1
+
 %{!?__python_ver:%global __python_ver EMPTY}
 #global __python_ver 27
 %global unicode ucs4
@@ -119,8 +121,8 @@
 Summary: An interpreted, interactive, object-oriented programming language
 Name: %{?scl_prefix}%{python}
 # Remember to also rebase python-docs when changing this:
-Version: 2.7.8
-Release: 16%{?dist}
+Version: 2.7.13
+Release: 3%{?dist}
 License: Python
 Group: Development/Languages
 %{?scl:Requires: %{scl}-runtime}
@@ -174,6 +176,14 @@ BuildRequires: valgrind-devel
 %endif
 
 BuildRequires: zlib-devel
+
+%if 0%{?with_rewheel}
+BuildRequires: %{?scl_prefix}python-setuptools
+BuildRequires: %{?scl_prefix}python-pip
+
+Requires: %{?scl_prefix}python-setuptools
+Requires: %{?scl_prefix}python-pip
+%endif
 
 
 
@@ -736,7 +746,11 @@ Patch165: 00165-crypt-module-salt-backport.patch
 # a frame can't be read from the inferior process (rhbz#912025)
 #
 # Not yet sent upstream
-Patch166: 00166-fix-fake-repr-in-gdb-hooks.patch
+# -----
+# The original issue was a build failure on ARM, as that is no longer the case
+# and the patch doesn't apply cleanly, I'm dropping it. However, should the
+# issue arise again, the patch can be trivially rebased.
+# Patch166: 00166-fix-fake-repr-in-gdb-hooks.patch
 
 # 00167 #
 # Don't run any of the stack navigation tests in test_gdb when Python is
@@ -850,7 +864,9 @@ Patch181: 00181-allow-arbitrary-timeout-in-condition-wait.patch
 # Python recognizes ffi.h only if it contains "#define LIBFFI_H",
 # but the wrapper doesn't contain that, which makes the build fail
 # We patch this by also accepting "#define ffi_wrapper_h"
-Patch184: 00184-ctypes-should-build-with-libffi-multilib-wrapper.patch
+# ---
+# Fixed upstream: http://bugs.python.org/issue26661
+# Patch184: 00184-ctypes-should-build-with-libffi-multilib-wrapper.patch
 
 # 00185 #
 # Makes urllib2 honor "no_proxy" enviroment variable for "ftp:" URLs
@@ -900,99 +916,114 @@ Patch191: 00191-disable-NOOP.patch
 # Fix for CVE-2013-1752
 # - multiple unbound readline() DoS flaws in python stdlib
 # rhbz#1046174
-Patch196: CVE-2013-1752.patch
+# -----
+# Already upstream
+# Patch196: CVE-2013-1752.patch
 
 # Fix for CVE-2013-1753
 # - XMLRPC library unrestricted decompression of HTTP responses using gzip
 #   enconding
 # rhbz#1046170
-Patch197: xmlrpc_gzip_27_parameter.patch
+# -----
+# Already upstream
+# Patch197: xmlrpc_gzip_27_parameter.patch
+
+# 00198 #
+Patch198: 00198-add-rewheel-module.patch
 
 # ================== PEP466===========================
 # Massive backport of PEP466 and relevant other fixes
+# ====================================================
+# REMOVED after rebasing to 2.7.13 as it already contains this PEP
 # ================rhbz#1111461========================
 # 00213 #
 # Fix %S, %R and %V formats of PyUnicode_FromFormat().
 # http://bugs.python.org/issue122023
-Patch213: 00213-pep466-pyunicode_fromformat-fix-formats.patch
+# Patch213: 00213-pep466-pyunicode_fromformat-fix-formats.patch
 
 # 00214 #
 # Backport SSL module from Python3
 # http://bugs.python.org/issue21308
-Patch214: 00214-pep466-backport-py3-ssl-changes.patch
+# Patch214: 00214-pep466-backport-py3-ssl-changes.patch
 
 # 00215 #
 # OpenSSL disabled various ciphers and protocols
 # we have to reflect it in tests
-Patch215: 00215-pep466-reflect-openssl-settings-ssltests.patch
+# Patch215: 00215-pep466-reflect-openssl-settings-ssltests.patch
 
 # 00216 #
 # fix load_verify_locations on unicode paths
 # http://bugs.python.org/issue22244
-Patch216: 00216-pep466-fix-load-verify-locs-unicode.patch
+# Patch216: 00216-pep466-fix-load-verify-locs-unicode.patch
 
 # 00217 #
 # backport hashlib changes
 # http://bugs.python.org/issue21307
-Patch217: 00217-pep466-backport-hashlib-algorithm-consts.patch
+# Patch217: 00217-pep466-backport-hashlib-algorithm-consts.patch
 
 # 00218 #
 # update os.urandom
 # http://bugs.python.org/issue21305
-Patch218: 00218-pep466-backport-urandom-pers-fd.patch
+# Patch218: 00218-pep466-backport-urandom-pers-fd.patch
 
 # 00219 #
 # Lib/ssl.py still references _ssl.sslwrap
 # http://bugs.python.org/issue22523
-Patch219: 00219-pep466-fix-referenced-sslwrap.patch
+# Patch219: 00219-pep466-fix-referenced-sslwrap.patch
 
 # 00220 #
 # allow passing cert/ssl information to urllib2.urlopen and httplib.HTTPSConnection
-Patch220: 00220-pep466-allow-passing-ssl-urrlib-httplib.patch
+# Patch220: 00220-pep466-allow-passing-ssl-urrlib-httplib.patch
 
 # 00221 #
 # Patch214 remove sslwrap from _ssl.c this so we have to reimplement it
-Patch221: 00221-pep466-backport-sslwrap-c-ssl.patch
+# Patch221: 00221-pep466-backport-sslwrap-c-ssl.patch
 
 # 00222 #
 # test_ssl: fails on recent libressl version with BAD_DH_P_LENGTH
 # https://bugs.python.org/issue23844
-Patch222: 00222-add-2014-bit-dh-key.patch
+# Patch222: 00222-add-2014-bit-dh-key.patch
 
 # 00223 #
 # PEP 476: verify HTTPS certificates by default
 # http://bugs.python.org/issue22417
 # Resolves:rhbz#1219110
-Patch223: 00223-pep476-verify-certs-by-default.patch
+# Patch223: 00223-pep476-verify-certs-by-default.patch
 
 # 00224 #
-# Add switch to toggle global verification on and off
-# Resolves:rhbz#1219108
+# Re-add file based configuration to toggle HTTPS verification on and off
+# Note: The 'platform_default' is now set to enabled
 # For more information see PEP493
-Patch224: 00224-pep476-add-toggle-for-cert-verify.patch
+# Resolves: rhbz#1417838 and previously rhbz#1219108
+Patch224: 00224-PEP-493-Re-add-file-based-configuration-of-HTTPS-ver.patch
 
 # 00227 #
 # Make load_cert_chain function of SSLContext accept
 # keyfile which is set to None
 # Resolves: rhbz#1250611
-Patch227: 00227-accept-none-keyfile-loadcertchain.patch
+# Patch227: 00227-accept-none-keyfile-loadcertchain.patch
 
 # 00228 #
 # Backport SSLSocket.version function
 # Resolves: rhbz#1259421
-Patch228: 00228-backport-ssl-version.patch
+# Patch228: 00228-backport-ssl-version.patch
 
 # ================== !PEP466 ===========================
 
 # 00229 #
 # Initialize OpenSSL_add_all_digests in _hashlib
 # Resolves: rhbz#1318319
-Patch229: 00229-fix-hashlib-openssl-init.patch
+# -----
+# Already upstream
+# Patch229: 00229-fix-hashlib-openssl-init.patch
 
 # 00230 #
 # Adjusted tests to determine existence or lack of SSLv2 support
 # Resolves: rhbz#1319703
-Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
+# -----
+# Upstream test suite was adjusted and Python now doesn't fail to build without
+# this patch, therefore I'm dropping it.
+# Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
 
 # 00231 #
 # Add choices for sort option of cProfile for better output message
@@ -1000,35 +1031,40 @@ Patch230: 00230-adjusted-tests-to-determine-if-SSLv2-is-enabled-or-not.patch
 # Resolves: rhbz#1319655
 Patch231: 00231-cprofile-sort-option.patch
 
-# 00231 #
+# 00232 #
 # Fix for iteration over files vith very long lines
 # http://bugs.python.org/issue22526
 # Resolves: rhbz#1329141
-Patch232: 00232-use-Py_ssize_t-for-file-offset-and-length-computations-in-iteration.patch
+# -----
+# Already upstream
+# Patch232: 00232-use-Py_ssize_t-for-file-offset-and-length-computations-in-iteration.patch
 
 # 00237 #
 # CVE-2016-0772 python: smtplib StartTLS stripping attack
 #   https://bugzilla.redhat.com/show_bug.cgi?id=1303647
-#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/b3ce713fb9be
 # Raise an error when STARTTLS fails
 # Resolves: rhbz#1346358
-Patch237: 00237-CVE-2016-0772-smtplib.patch
+# -----
+# FIXED UPSTREAM: https://hg.python.org/cpython/rev/b3ce713fb9be
+# Patch237: 00237-CVE-2016-0772-smtplib.patch
 
 # 00238 #
 # CVE-2016-5699 python: http protocol steam injection attack
 #   https://bugzilla.redhat.com/show_bug.cgi?id=1303699
-#   FIXED UPSTREAM: https://hg.python.org/cpython/rev/1c45047c5102
 # Disabled HTTP header injections in httplib
 # Resolves: rhbz#1346358
-Patch238: 00238-CVE-2016-5699-httplib.patch
+# -----
+# FIXED UPSTREAM: https://hg.python.org/cpython/rev/1c45047c5102
+# Patch238: 00238-CVE-2016-5699-httplib.patch
 
 # 00242 #
 # HTTPoxy attack (CVE-2016-1000110)
 # https://httpoxy.org/
-# FIXED UPSTREAM: http://bugs.python.org/issue27568
 # Based on a patch by Rémi Rampin
 # Resolves: rhbz#1359167
-Patch242: 00242-CVE-2016-1000110-httpoxy.patch
+# -----
+# FIXED UPSTREAM: http://bugs.python.org/issue27568
+# Patch242: 00242-CVE-2016-1000110-httpoxy.patch
 
 # (New patches go here ^^^)
 #
@@ -1379,7 +1415,7 @@ done
 # 00164: not for python 2 yet
 %patch165 -p1
 mv Modules/cryptmodule.c Modules/_cryptmodule.c
-%patch166 -p1
+# 00166: no longer needed
 %patch167 -p1
 %patch168 -p1
 %patch169 -p1
@@ -1398,35 +1434,39 @@ mv Modules/cryptmodule.c Modules/_cryptmodule.c
 # 00182: upstream as of Python 2.7.7
 # 00183: upstream as of Python 2.7.7
 # 00184: upstream as of Python 2.7.7
-%patch184 -p1
 %patch185 -p1
 %patch187 -p1
 %patch189 -p1
 %patch191 -p1
-%patch196 -p1
-%patch197 -p1
+# 00196: upstream as of Python 2.7.9
+# 00197: upstream as of Python 2.7.9
 
-%patch213 -p1
-%patch214 -p1
-%patch215 -p1
-%patch216 -p1
-%patch217 -p1
-%patch218 -p1
-%patch219 -p1
-%patch220 -p1
-%patch221 -p1
-%patch222 -p1
-%patch223 -p1
+%if 0%{with_rewheel}
+%patch198 -p1
+%endif
+
+# 00213: PEP 466 backport, upstream as of 2.7.9
+# 00214: PEP 466 backport, upstream as of 2.7.9
+# 00215: PEP 466 backport, upstream as of 2.7.9
+# 00216: PEP 466 backport, upstream as of 2.7.9
+# 00217: PEP 466 backport, upstream as of 2.7.9
+# 00218: PEP 466 backport, upstream as of 2.7.9
+# 00219: PEP 466 backport, upstream as of 2.7.9
+# 00220: PEP 466 backport, upstream as of 2.7.9
+# 00221: PEP 466 backport, upstream as of 2.7.9
+# 00222: PEP 466 backport, upstream as of 2.7.9
+# 00223: PEP 466 backport, upstream as of 2.7.9
 %patch224 -p1
-%patch227 -p1
-%patch228 -p1
-%patch229 -p1
-%patch230 -p1
+# 00227: PEP 466 backport, upstream as of 2.7.9
+# 00228: PEP 466 backport, upstream as of 2.7.9
+
+# 00229: upstream
+# 00230: no longer needed
 %patch231 -p1
-%patch232 -p1
-%patch237 -p1
-%patch238 -p1
-%patch242 -p1
+# 00232: upstream
+# 00237: upstream
+# 00238: upstream
+# 00242: upstream
 
 # This shouldn't be necesarry, but is right now (2.2a3)
 find -name "*~" |xargs rm -f
@@ -2090,6 +2130,15 @@ rm -fr %{buildroot}
 %doc systemtap-example.stp pyfuntop.stp
 %endif
 
+%dir %{pylibdir}/ensurepip/
+%{pylibdir}/ensurepip/*.py*
+%exclude %{pylibdir}/ensurepip/_bundled
+
+%if 0%{?with_rewheel}
+%dir %{pylibdir}/ensurepip/rewheel/
+%{pylibdir}/ensurepip/rewheel/*.py*
+%endif
+
 %files devel
 %defattr(-,root,root,-)
 %{?scl:%{_root_prefix}/lib/rpm/redhat/brp-python-bytecompile-with-scl-python}
@@ -2292,6 +2341,23 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Tue Feb 07 2017 Tomas Orsava <torsava@redhat.com> - 2.7.13-3
+- Reworked and readded patch 224: File based configuration of HTTPS verification
+Resolves: rhbz#1417838
+
+* Tue Jan 31 2017 Tomas Orsava <torsava@redhat.com> - 2.7.13-2
+- Rebuilding because some .pyc/.pyo files were not properly generated in the
+  official build for some reason
+
+* Mon Jan 09 2017 Tomas Orsava <torsava@redhat.com> - 2.7.13-1
+- Rebased to Python 2.7.13
+- Removed backport of PEP 466 (Patches 213-228)
+- Rebased/rewritten patches 1, 6, 10, 55, 102, 112, 134, 136, 137, 146, 153,
+  156, 167, 170, 180, 181, 189, 191
+- Dropped patches 166, 184, 196, 197, 229, 230, 232, 237, 238, 242
+- Added the rewheel module: patch 198
+Resolves: rhbz#1402809
+
 * Thu Aug 04 2016 Charalampos Stratakis <cstratak@redhat.com> - 2.7.8-16
 - Fix for CVE-2016-1000110 HTTPoxy attack
 Resolves: rhbz#1359167

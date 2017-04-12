@@ -1,7 +1,21 @@
-diff -up Python-2.7.3/Lib/test/test_gdb.py.disable-stack-navigation-tests-when-optimized-in-test_gdb Python-2.7.3/Lib/test/test_gdb.py
---- Python-2.7.3/Lib/test/test_gdb.py.disable-stack-navigation-tests-when-optimized-in-test_gdb	2013-02-20 12:27:05.669526425 -0500
-+++ Python-2.7.3/Lib/test/test_gdb.py	2013-02-20 12:27:05.715526422 -0500
-@@ -653,10 +653,10 @@ class PyListTests(DebuggerTests):
+From 084421eb30e9ae981731aae4038cc934b3feb71d Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Wed, 11 Jan 2017 15:14:09 +0100
+Subject: [PATCH] Don't run any of the stack navigation tests in test_gdb when
+ Python is optimized,
+
+since there appear to be many different ways in which gdb can
+fail to read the PyFrameObject* for arbitrary places in the callstack,
+presumably due to compiler optimization (rhbz#912025)
+---
+ Lib/test/test_gdb.py | 13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/Lib/test/test_gdb.py b/Lib/test/test_gdb.py
+index 38e570f..6d45da8 100644
+--- a/Lib/test/test_gdb.py
++++ b/Lib/test/test_gdb.py
+@@ -697,10 +697,10 @@ class PyListTests(DebuggerTests):
                             '   3    def foo(a, b, c):\n',
                             bt)
  
@@ -15,7 +29,7 @@ diff -up Python-2.7.3/Lib/test/test_gdb.py.disable-stack-navigation-tests-when-o
      def test_pyup_command(self):
          'Verify that the "py-up" command works'
          bt = self.get_stack_trace(script=self.get_sample_script(),
-@@ -667,7 +667,6 @@ class StackNavigationTests(DebuggerTests
+@@ -711,7 +711,6 @@ class StackNavigationTests(DebuggerTests):
      baz\(a, b, c\)
  $''')
  
@@ -23,15 +37,17 @@ diff -up Python-2.7.3/Lib/test/test_gdb.py.disable-stack-navigation-tests-when-o
      def test_down_at_bottom(self):
          'Verify handling of "py-down" at the bottom of the stack'
          bt = self.get_stack_trace(script=self.get_sample_script(),
-@@ -675,7 +674,6 @@ $''')
+@@ -719,9 +718,6 @@ $''')
          self.assertEndsWith(bt,
                              'Unable to find a newer python frame\n')
  
 -    @unittest.skipUnless(HAS_PYUP_PYDOWN, "test requires py-up/py-down commands")
+-    @unittest.skipIf(python_is_optimized(),
+-                     "Python was compiled with optimizations")
      def test_up_at_top(self):
          'Verify handling of "py-up" at the top of the stack'
          bt = self.get_stack_trace(script=self.get_sample_script(),
-@@ -683,9 +681,6 @@ $''')
+@@ -729,9 +725,6 @@ $''')
          self.assertEndsWith(bt,
                              'Unable to find an older python frame\n')
  
@@ -41,3 +57,6 @@ diff -up Python-2.7.3/Lib/test/test_gdb.py.disable-stack-navigation-tests-when-o
      def test_up_then_down(self):
          'Verify "py-up" followed by "py-down"'
          bt = self.get_stack_trace(script=self.get_sample_script(),
+-- 
+2.11.0
+
