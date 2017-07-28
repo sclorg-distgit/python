@@ -14,7 +14,7 @@
 # 4) python3-setuptools and python3-pip with with_rewheel set to 1
 # 5) python3 with with_rewheel set to 1
 
-%global with_rewheel 0
+%global with_rewheel 1
 
 %{!?scl:%global pkg_name %{name}}
 %{?scl:%scl_package python}
@@ -131,7 +131,7 @@
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
 Version: %{pybasever}.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -1617,6 +1617,9 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Thu Jun 15 2017 Iryna Shcherbina <ishcherb@redhat.com> - 3.6.1-2
+- Enable rewheel mode
+
 * Tue Jun 06 2017 Charalampos Stratakis <cstratak@redhat.com> - 3.6.1-1
 - Update to Python 3.6.1
 - Disable rewheel mode
