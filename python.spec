@@ -130,8 +130,8 @@
 # ==================
 Summary: Version 3 of the Python programming language aka Python 3000
 Name: %{?scl_prefix}python
-Version: %{pybasever}.1
-Release: 2%{?dist}
+Version: %{pybasever}.2
+Release: 3%{?dist}
 License: Python
 Group: Development/Languages
 
@@ -417,31 +417,25 @@ Patch231: 00231-cprofile-sort-option.patch
 # Fedora needs the default mips64-linux-gnu
 Patch243: 00243-fix-mips64-triplet.patch
 
-# 00249 #
-# Fix builds using the --with-dtrace flag as the rpmbuild
-# of python is an out of tree build
-# Fixed upstream: http://bugs.python.org/issue28787
-Patch249: 00249-fix-out-of-tree-dtrace-builds.patch
-
-# 00258 #
-# Kernel 4.9 introduced some changes to its crypto API
-# making test_aead_aes_gcm fail, so work around the test for now
-# Reported upstream: http://bugs.python.org/issue29324
-Patch258: 00258-fix-test_aead_aes_gcm.patch
-
 # 00264 #
 # Fix pass by value for structs on 64-bit Cygwin/MinGW/aarch64
 # Fixed upstream: http://bugs.python.org/issue29804
 Patch264: 00264-fix-pass-by-value-for-structs-on-aarch64.patch
 
-# 00269 #
-# Fix python's recompilation with common build commands when using
-# profile guided optimizations.
-# Fixed upstream: http://bugs.python.org/issue29243
-Patch269: 00269-fix-multiple-compilations-issue-with-pgo-builds.patch
+# 00271 #
+# Make test_asyncio not depend on the current signal handler
+# as this can make it hang in brew, since it ignores SIGHUP.
+# Fixed upstream: http://bugs.python.org/issue31034
+Patch271: 00271-asyncio-get-default-signal-handler.patch
+
+# 00272 #
+# Reject newline characters in ftplib.FTP.putline() arguments to
+# avoid FTP protocol stream injection via malicious URLs.
+# rhbz#1478916
+# Fixed upstream: http://bugs.python.org/issue30119
+Patch272: 00272-fix-ftplib-to-reject-newlines.patch
 
 Patch300: 00300-change-so-version-scl.patch
-
 
 # (New patches go here ^^^)
 #
@@ -654,10 +648,9 @@ sed -r -i s/'_PIP_VERSION = "[0-9.]+"'/'_PIP_VERSION = "%{pip_version}"'/ Lib/en
 %patch206 -p1
 %patch231 -p1
 %patch243 -p1
-%patch249 -p1
-%patch258 -p1
 %patch264 -p1
-%patch269 -p1
+%patch271 -p1
+%patch272 -p1
 
 cat %{PATCH300} | sed -e "s/__SCL_NAME__/%{?scl}/" \
                 | patch -p1
@@ -690,7 +683,10 @@ export CPPFLAGS="-I%{_includedir}`pkg-config --cflags-only-I libffi`"
 export OPT="$RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv"
 export LINKCC="gcc"
 export CFLAGS="$CFLAGS `pkg-config --cflags openssl`"
-export LDFLAGS="-L%{_libdir}$RPM_LD_FLAGS `pkg-config --libs-only-L openssl`"
+# Passing to the dynamic linker parameters -rpath and --enable-new-dtags causes
+# ld to set RUNPATH instead of RPATH in the executables and libraries
+export LDFLAGS="-L%{_libdir}$RPM_LD_FLAGS `pkg-config --libs-only-L openssl` \
+                -Wl,-rpath,%{_libdir} -Wl,--enable-new-dtags"
 
 # Define a function, for how to perform a "build" of python for a given
 # configuration:
@@ -762,7 +758,11 @@ BuildPython debug \
 BuildPython optimized \
   python \
   python%{pybasever} \
+%ifarch %{ix86} x86_64
+  "--without-ensurepip --enable-optimizations" \
+%else
   "--without-ensurepip" \
+%endif
   true
 %{?scl:EOF}
 
@@ -1099,6 +1099,7 @@ echo '[ $? -eq 127 ] && echo "Could not find python%{LDVERSION_optimized}-`uname
   %{buildroot}%{_bindir}/python%{LDVERSION_optimized}-config
   chmod +x %{buildroot}%{_bindir}/python%{LDVERSION_optimized}-config
 
+%if 0%{?with_debug_build}
 # Rename the -debug script that differs on different arches to arch specific name
 mv %{buildroot}%{_bindir}/python%{LDVERSION_debug}-{,`uname -m`-}config
 echo -e '#!/bin/sh\nexec `dirname $0`/python%{LDVERSION_debug}-`uname -m`-config "$@"' > \
@@ -1106,6 +1107,9 @@ echo -e '#!/bin/sh\nexec `dirname $0`/python%{LDVERSION_debug}-`uname -m`-config
 echo '[ $? -eq 127 ] && echo "Could not find python%{LDVERSION_debug}-`uname -m`-config. Look around to see available arches." >&2' >> \
   %{buildroot}%{_bindir}/python%{LDVERSION_debug}-config
   chmod +x %{buildroot}%{_bindir}/python%{LDVERSION_debug}-config
+%endif # with_debug_build
+
+
 # ======================================================
 # Running the upstream test suite
 # ======================================================
@@ -1137,11 +1141,9 @@ CheckPython() {
   #   aarch64, see upstream bug http://bugs.python.org/issue21131
   WITHIN_PYTHON_RPM_BUILD= \
   LD_LIBRARY_PATH=$ConfDir $ConfDir/python -m test.regrtest \
-    --verbose --findleaks \
+    -wW --slowest --findleaks \
     -x test_distutils \
     -x test_readline \
-    -x test_socket \
-    -x test_asyncio \
     %ifarch ppc64le aarch64
     -x test_faulthandler \
     %endif
@@ -1615,6 +1617,24 @@ rm -fr %{buildroot}
 # ======================================================
 
 %changelog
+* Mon Aug 07 2017 Iryna Shcherbina <ishcherb@redhat.com> - 3.6.2-3
+- Fix the "urllib FTP protocol stream injection" vulnerability
+Resolves: rhbz#1478955
+
+* Fri Aug 04 2017 Tomas Orsava <torsava@redhat.com> - 3.6.2-2
+- Hard-code RUNPATH (not RPATH) into the executables and C libraries so that
+  Python can be run without first running scl enable
+
+* Wed Aug 2 2017 Iryna Shcherbina <ishcherb@redhat.com> - 3.6.2-1
+- Update to Python 3.6.2
+- Enable profile guided optimizations for x86_64 and i686 architectures
+- Replace the "--verbose" flag with "-wW" and add "--slowest" flag
+Resolves: rhbz#1463715
+
+* Tue Aug 1 2017 Iryna Shcherbina <ishcherb@redhat.com> - 3.6.1-3
+- Make test_asyncio not depend on the current SIGHUP signal handler
+Resolves: rhbz#1461453
+
 * Wed Jun 14 2017 Charalampos Stratakis <cstratak@redhat.com> - 3.6.1-2
 - Enable rewheel
 
