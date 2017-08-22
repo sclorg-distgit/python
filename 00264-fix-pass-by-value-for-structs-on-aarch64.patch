@@ -51,7 +51,7 @@ index 59d56d0..1963f57 100644
 --- a/Modules/_ctypes/_ctypes_test.c
 +++ b/Modules/_ctypes/_ctypes_test.c
 @@ -57,6 +57,24 @@ _testfunc_large_struct_update_value(Test in)
-     in.third = 0x0badf00d;
+     ((volatile Test *)&in)->third = 0x0badf00d;
  }
  
 +typedef struct {
