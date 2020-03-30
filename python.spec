@@ -24,7 +24,7 @@ URL: https://www.python.org/
 #global prerel ...
 %global upstream_version %{general_version}%{?prerel}
 Version: %{general_version}%{?prerel:~%{prerel}}
-Release: 5.bootstrap%{?dist}
+Release: 7%{?dist}
 License: Python
 
 # ==================================
@@ -55,17 +55,17 @@ License: Python
 #   IMPORTANT: When bootstrapping, it's very likely the wheels for pip and
 #   setuptools are not available. Turn off the rpmwheels bcond until
 #   the two packages are built with wheels to get around the issue.
-%bcond_without bootstrap
+%bcond_with bootstrap
 
 # Whether to use RPM build wheels from the python-{pip,setuptools}-wheel package
 # Uses upstream bundled prebuilt wheels otherwise
-%bcond_with rpmwheels
+%bcond_without rpmwheels
 
 # Expensive optimizations (mainly, profile-guided optimizations)
 %bcond_without optimizations
 
 # Run the test suite in %%check
-%bcond_with tests
+%bcond_without tests
 
 # Extra build for debugging the interpreter or C-API extensions
 # (the -debug subpackages)
@@ -329,6 +329,10 @@ Patch189: 00189-use-rpm-wheels.patch
 # to /usr/local if executable is /usr/bin/python* and RPM build
 # is not detected to make pip and distutils install into separate location
 # Fedora Change: https://fedoraproject.org/wiki/Changes/Making_sudo_pip_safe
+#
+# SCL: This patch contains hardcoded location for /usr/local that needed to be
+# modified for SCLs: the `PREFIXES.insert` variable now contains a hardcoded
+# path to /usr/local inside the SCL root folder
 Patch251: 00251-change-user-install-location.patch
 
 # 00274 #
@@ -1142,9 +1146,16 @@ CheckPython() {
     -x test_distutils \
     %endif
     -x test_gdb \
+    -x test_distutils \
     %ifarch %{mips64}
     -x test_ctypes \
     %endif
+  # Disabled test_distutils due to 2 tests failing:
+  #   - test_no_optimize_flag
+  #   - test_quiet
+  #   they run rpmbuild and crash on:
+  #     /usr/lib/rpm/brp-python-bytecompile: line 44: /usr/bin/python3.8: No such file or directory
+  #   because %%_os_install_post isn't overriden
 
   echo FINISHED: CHECKING OF PYTHON FOR CONFIGURATION: $ConfName
 
@@ -1673,6 +1684,15 @@ CheckPython optimized
 # ======================================================
 
 %changelog
+* Tue Jan 07 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-7
+- Fixed path to /usr/local for pip
+- Resolves: rhbz#1671025
+
+* Tue Jan 07 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-6
+- Finished bootstrapping
+- Disabled broken tests
+- Resolves: rhbz#1671025
+
 * Tue Jan 07 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-5.bootstrap
 - Converted from RHEL8 module to RHSCL for RHEL7
 - Start of bootstrapping

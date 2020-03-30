@@ -55,7 +55,7 @@ index 22d53fa562..9513526109 100644
 +
 +    """
 +    if ENABLE_USER_SITE and 'RPM_BUILD_ROOT' not in os.environ:
-+        PREFIXES.insert(0, "/usr/local")
++        PREFIXES.insert(0, "/opt/rh/rh-python38/root/usr/local")
      for sitedir in getsitepackages(prefixes):
          if os.path.isdir(sitedir):
              addsitedir(sitedir, known_paths)
