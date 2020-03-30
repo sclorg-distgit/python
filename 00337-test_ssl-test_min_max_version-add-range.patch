@@ -1,0 +1,38 @@
+From 4e4445efad2d3aa17b455a2683884e500d1a7c90 Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Fri, 29 Nov 2019 16:07:27 +0100
+Subject: [PATCH] Adjust the test_min_max_version in test_ssl
+
+to accept the new settings in RHEL 8.2 where maximum_version is set to TLS 1.3.
+---
+ Lib/test/test_ssl.py | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/Lib/test/test_ssl.py b/Lib/test/test_ssl.py
+index 419506f..c9b2cf9 100644
+--- a/Lib/test/test_ssl.py
++++ b/Lib/test/test_ssl.py
+@@ -1200,12 +1200,18 @@ class ContextTests(unittest.TestCase):
+             # RHEL 8 uses TLS 1.2 by default
+             ssl.TLSVersion.TLSv1_2
+         }
++        maximum_range = {
++            # stock OpenSSL
++            ssl.TLSVersion.MAXIMUM_SUPPORTED,
++            # RHEL 8.2 requires maximum TLS 1.3
++            ssl.TLSVersion.TLSv1_3
++        }
+ 
+         self.assertIn(
+             ctx.minimum_version, minimum_range
+         )
+-        self.assertEqual(
+-            ctx.maximum_version, ssl.TLSVersion.MAXIMUM_SUPPORTED
++        self.assertIn(
++            ctx.maximum_version, maximum_range
+         )
+ 
+         ctx.minimum_version = ssl.TLSVersion.TLSv1_1
+-- 
+2.20.1
+

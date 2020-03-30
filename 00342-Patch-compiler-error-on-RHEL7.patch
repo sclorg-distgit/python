@@ -1,0 +1,37 @@
+From 64fbc1edda0e7f49568fd65e14f263c0a38bbd11 Mon Sep 17 00:00:00 2001
+From: Tomas Orsava <torsava@redhat.com>
+Date: Tue, 21 Jan 2020 16:27:10 +0100
+Subject: [PATCH] Patch compiler error on RHEL7
+
+/usr/include/bits/fcntl2.h: In function '_Py_open_impl':
+/usr/include/bits/fcntl2.h:50:24: error: call to '__open_missing_mode' declared with attribute error: open with O_CREAT or O_TMPFILE in second argument needs 3 arguments
+    __open_missing_mode ();
+---
+ Python/fileutils.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Python/fileutils.c b/Python/fileutils.c
+index e79e732..e5b7b21 100644
+--- a/Python/fileutils.c
++++ b/Python/fileutils.c
+@@ -1280,7 +1280,7 @@ _Py_open_impl(const char *pathname, int flags, int gil_held)
+ 
+         do {
+             Py_BEGIN_ALLOW_THREADS
+-            fd = open(pathname, flags);
++            fd = open(pathname, flags, 0666);
+             Py_END_ALLOW_THREADS
+         } while (fd < 0
+                  && errno == EINTR && !(async_err = PyErr_CheckSignals()));
+@@ -1292,7 +1292,7 @@ _Py_open_impl(const char *pathname, int flags, int gil_held)
+         }
+     }
+     else {
+-        fd = open(pathname, flags);
++        fd = open(pathname, flags, 0666);
+         if (fd < 0)
+             return -1;
+     }
+-- 
+2.24.1
+
