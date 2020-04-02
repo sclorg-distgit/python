@@ -24,7 +24,7 @@ URL: https://www.python.org/
 #global prerel ...
 %global upstream_version %{general_version}%{?prerel}
 Version: %{general_version}%{?prerel:~%{prerel}}
-Release: 7%{?dist}
+Release: 8%{?dist}
 License: Python
 
 # ==================================
@@ -210,7 +210,13 @@ BuildRequires: desktop-file-utils
 BuildRequires: expat-devel
 
 BuildRequires: findutils
-BuildRequires: gcc-c++
+
+# SCL: build with gcc from devtoolset SCL
+# Update to new devtoolset version if necessary
+%global dts devtoolset-9
+BuildRequires: %{dts}-gcc-c++
+# BuildRequires: gcc-c++
+
 %if %{with gdbm}
 BuildRequires: gdbm-devel
 %endif
@@ -245,8 +251,7 @@ BuildRequires: valgrind-devel
 BuildRequires: xz-devel
 BuildRequires: zlib-devel
 
-# SCL: Disabled due to an old version of gcc in RHEL7
-# BuildRequires: /usr/bin/dtrace
+BuildRequires: /usr/bin/dtrace
 
 # workaround http://bugs.python.org/issue19804 (test_uuid requires ifconfig)
 # SCL: changed from file name to package name
@@ -743,8 +748,7 @@ topdir=$(pwd)
 # SCL: %%extension_... flags are not available in RHEL7, reverting to old flags
 
 export CFLAGS="-I%{_includedir} $RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv"
-export CFLAGS_NODIST="-I%{_includedir} $RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv"
-  # SCL: Disabled -fno-semantic-interposition" due to old gcc in RHEL7
+export CFLAGS_NODIST="-I%{_includedir} $RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv -fno-semantic-interposition"
 export CXXFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv"
 export CPPFLAGS="$(pkg-config --cflags-only-I libffi)"
 export OPT="$RPM_OPT_FLAGS -D_GNU_SOURCE -fPIC -fwrapv"
@@ -755,8 +759,7 @@ export CFLAGS="$CFLAGS $(pkg-config --cflags openssl)"
 # ld to set RUNPATH instead of RPATH in the executables and libraries
 # Setting RUNPATH resolves rhbz#1479406
 export LDFLAGS="-L%{_libdir}$RPM_LD_FLAGS -Wl,-rpath,%{_libdir} -Wl,--enable-new-dtags -g $(pkg-config --libs-only-L openssl)"
-export LDFLAGS_NODIST="-L%{_libdir}$RPM_LD_FLAGS -Wl,-rpath,%{_libdir} -Wl,--enable-new-dtags -g $(pkg-config --libs-only-L openssl)"
-  # SCL: Disabled -fno-semantic-interposition" due to old gcc in RHEL7
+export LDFLAGS_NODIST="-L%{_libdir}$RPM_LD_FLAGS -Wl,-rpath,%{_libdir} -Wl,--enable-new-dtags -fno-semantic-interposition -g $(pkg-config --libs-only-L openssl)"
 
 # We can build several different configurations of Python: regular and debug.
 # Define a common function that does one build:
@@ -784,6 +787,7 @@ BuildPython() {
   --with-system-expat \
   --with-system-ffi \
   --enable-loadable-sqlite-extensions \
+  --with-dtrace \
   --with-lto \
   --with-ssl-default-suites=openssl \
 %if %{with valgrind}
@@ -791,8 +795,6 @@ BuildPython() {
 %endif
   $ExtraConfigArgs \
   %{nil}
-  # --with-dtrace \
-  #  -> SCL: Disabled dtrace due to old gcc in RHEL7
 
 %global flags_override EXTRA_CFLAGS="$MoreCFlags" CFLAGS_NODIST="$CFLAGS_NODIST $MoreCFlags"
 
@@ -811,7 +813,7 @@ BuildPython() {
 # Call the above to build each configuration.
 export -f BuildPython
 export topdir
-%{?scl:scl enable %scl - << \EOF}
+%{?scl:scl enable %{scl} %{?dts} - << \EOF}
 
 %if %{with debug_build}
 BuildPython debug \
@@ -1165,7 +1167,7 @@ CheckPython() {
 # SCL:
 export -f CheckPython
 export topdir
-%{?scl:scl enable %scl - << \EOF}
+%{?scl:scl enable %{scl} %{?dts} - << \EOF}
 set -e
 
 # Check each of the configurations:
@@ -1684,6 +1686,11 @@ CheckPython optimized
 # ======================================================
 
 %changelog
+* Thu Jan 30 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-8
+- Building with new gcc from devtoolset
+- Re-added dtrace and -fno-semantic-interposition
+- Resolves: rhbz#1671025
+
 * Tue Jan 07 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-7
 - Fixed path to /usr/local for pip
 - Resolves: rhbz#1671025
