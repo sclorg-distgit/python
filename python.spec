@@ -24,7 +24,7 @@ URL: https://www.python.org/
 #global prerel ...
 %global upstream_version %{general_version}%{?prerel}
 Version: %{general_version}%{?prerel:~%{prerel}}
-Release: 9%{?dist}
+Release: 10%{?dist}
 License: Python
 
 # ==================================
@@ -1080,7 +1080,7 @@ ln -s ./python3-debug %{buildroot}%{_bindir}/python-debug
 # ======================================================
 
 %check
-exit 0
+
 # first of all, check timestamps of bytecode files
 find %{buildroot} -type f -a -name "*.py" -print0 | \
     LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
@@ -1680,6 +1680,10 @@ CheckPython optimized
 # ======================================================
 
 %changelog
+* Tue Feb 04 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-10
+- Fix invocation of brp-python-bytecompile
+- Resolves: rhbz#1671025
+
 * Thu Jan 30 2020 Tomas Orsava <torsava@redhat.com> - 3.8.0-9
 - Removed patch 342 which is not needed with the new gcc from devtoolset
 - Resolves: rhbz#1671025
